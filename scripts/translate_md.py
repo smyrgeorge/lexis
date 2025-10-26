@@ -3,6 +3,14 @@
 Markdown Translation Script
 
 Translates markdown files using LLMs (Claude or ChatGPT).
+
+Usage:
+# Basic translation with Claude
+python scripts/translate_md.py input.md -s Spanish -t English
+# With OpenAI
+python scripts/translate_md.py input.md -p openai -s Spanish -t English
+# With dictionary
+python scripts/translate_md.py input.md -s Spanish -t English -d dictionary.csv
 """
 
 import argparse
