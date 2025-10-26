@@ -82,8 +82,8 @@ def main():
 
     parser.add_argument(
         "-o", "--output-dir",
-        default="./out/chunks",
-        help="Output directory for PDF chunks"
+        default=None,
+        help="Output directory for PDF chunks (default: 'chunks' folder in the same directory as the input PDF)"
     )
 
     parser.add_argument(
@@ -94,6 +94,11 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # If no output directory specified, create 'chunks' folder next to the input PDF
+    if args.output_dir is None:
+        input_path = Path(args.input_file)
+        args.output_dir = str(input_path.parent / "chunks")
 
     try:
         chunk_pdf(args.input_file, args.output_dir, args.pages_per_chunk)
