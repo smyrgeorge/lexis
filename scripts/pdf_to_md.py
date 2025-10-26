@@ -7,9 +7,9 @@ Python API. Unlike the bash script version, this loads the docling models only o
 making it much more efficient for processing multiple files.
 
 Usage:
-    python scripts/batch_convert_pdf_to_md.py <directory_path>
-    python scripts/batch_convert_pdf_to_md.py <directory_path> --line-width 120
-    python scripts/batch_convert_pdf_to_md.py <directory_path> --no-wrap
+    python scripts/pdf_to_md.py <directory_path>
+    python scripts/pdf_to_md.py <directory_path> --line-width 120
+    python scripts/pdf_to_md.py <directory_path> --no-wrap
 """
 
 import argparse

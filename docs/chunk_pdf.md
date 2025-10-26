@@ -99,7 +99,7 @@ Chunks are named with a consistent format:
 python scripts/chunk_pdf.py large-document.pdf -p 10 -o ./chunks
 
 # Step 2: Convert chunks to markdown
-python scripts/batch_convert_pdf_to_md.py ./chunks
+python scripts/pdf_to_md.py ./chunks
 
 # Step 3: Translate markdown chunks
 python scripts/translate_md.py ./chunks -s Spanish -t English
@@ -153,6 +153,6 @@ The script will display an error and exit if:
 
 ## See Also
 
-- [batch_convert_pdf_to_md.md](batch_convert_pdf_to_md.md) - Convert chunked PDFs to markdown
+- [batch_convert_pdf_to_md.md](pdf_to_md.md) - Convert chunked PDFs to markdown
 - [chunk_md.md](chunk_md.md) - Alternative: chunk after conversion to markdown
 - [translate_md.md](translate_md.md) - Translate the resulting markdown chunks

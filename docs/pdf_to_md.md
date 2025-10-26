@@ -22,7 +22,7 @@ significantly faster for processing multiple PDFs.
 ### Basic Usage
 
 ```bash
-python scripts/batch_convert_pdf_to_md.py <directory_path>
+python scripts/pdf_to_md.py <directory_path>
 ```
 
 This will:
@@ -34,7 +34,7 @@ This will:
 ### Custom Line Width
 
 ```bash
-python scripts/batch_convert_pdf_to_md.py ./pdfs --line-width 100
+python scripts/pdf_to_md.py ./pdfs --line-width 100
 ```
 
 Customize the maximum line width for wrapped content.
@@ -42,7 +42,7 @@ Customize the maximum line width for wrapped content.
 ### Disable Line Wrapping
 
 ```bash
-python scripts/batch_convert_pdf_to_md.py ./pdfs --no-wrap
+python scripts/pdf_to_md.py ./pdfs --no-wrap
 ```
 
 Output markdown without any line wrapping.

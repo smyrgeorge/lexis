@@ -78,13 +78,13 @@ Process all PDFs in a directory. The Python version is recommended as it loads d
 **Python version (recommended):**
 ```bash
 # Basic usage
-python scripts/batch_convert_pdf_to_md.py <directory_path>
+python scripts/pdf_to_md.py <directory_path>
 
 # Custom line width
-python scripts/batch_convert_pdf_to_md.py <directory_path> --line-width 100
+python scripts/pdf_to_md.py <directory_path> --line-width 100
 
 # Disable line wrapping
-python scripts/batch_convert_pdf_to_md.py <directory_path> --no-wrap
+python scripts/pdf_to_md.py <directory_path> --no-wrap
 ```
 
 **Bash version:**
@@ -139,7 +139,7 @@ término2,term2
 Comprehensive documentation for all scripts and workflows is available in the [docs](docs) folder:
 
 - **[Overview & Workflows](docs/README.md)** - Complete guide, common workflows, and best practices
-- **[batch_convert_pdf_to_md.py](docs/batch_convert_pdf_to_md.md)** - Efficiently convert PDFs to Markdown
+- **[batch_convert_pdf_to_md.py](docs/pdf_to_md.md)** - Efficiently convert PDFs to Markdown
 - **[chunk_pdf.py](docs/chunk_pdf.md)** - Split large PDFs into chunks
 - **[chunk_md.py](docs/chunk_md.md)** - Intelligently chunk markdown files
 - **[translate_md.py](docs/translate_md.md)** - Context-aware translation with LLMs
@@ -154,14 +154,14 @@ python scripts/pipeline.py project-name/document.pdf -s Spanish -t English
 
 **Manual Steps - Small PDF Translation:**
 ```bash
-python scripts/batch_convert_pdf_to_md.py ./document.pdf
+python scripts/pdf_to_md.py ./document.pdf
 python scripts/translate_md.py ./document.md -s Spanish -t English
 ```
 
 **Manual Steps - Large PDF Translation:**
 ```bash
 python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
-python scripts/batch_convert_pdf_to_md.py ./chunks
+python scripts/pdf_to_md.py ./chunks
 python scripts/translate_md.py ./chunks -s Spanish -t English
 ```
 

@@ -185,7 +185,7 @@ python scripts/chunk_md.py document.md --mode tokens --max-tokens 2000
 
 ```bash
 # Convert PDF to markdown
-python scripts/batch_convert_pdf_to_md.py ./book.pdf
+python scripts/pdf_to_md.py ./book.pdf
 
 # Chunk by chapters (level 1 headings)
 python scripts/chunk_md.py ./book.md --heading-level 1 -o ./chapters
@@ -275,4 +275,4 @@ All chunks saved to: document_chunks
 
 - [chunk_pdf.md](chunk_pdf.md) - Alternative: chunk before conversion
 - [translate_md.md](translate_md.md) - Translate chunked markdown files
-- [batch_convert_pdf_to_md.md](batch_convert_pdf_to_md.md) - Convert PDFs to markdown first
+- [batch_convert_pdf_to_md.md](pdf_to_md.md) - Convert PDFs to markdown first

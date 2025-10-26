@@ -9,7 +9,7 @@ pipeline from PDF to translated text with intelligent chunking and context-aware
 
 ## Quick Links
 
-- [batch_convert_pdf_to_md.md](batch_convert_pdf_to_md.md) - Efficiently convert multiple PDFs to Markdown
+- [batch_convert_pdf_to_md.md](pdf_to_md.md) - Efficiently convert multiple PDFs to Markdown
 - [chunk_pdf.md](chunk_pdf.md) - Split large PDFs into manageable chunks
 - [chunk_md.md](chunk_md.md) - Intelligently split markdown files
 - [translate_md.md](translate_md.md) - Translate markdown with context awareness
@@ -19,14 +19,14 @@ pipeline from PDF to translated text with intelligent chunking and context-aware
 
 ### PDF Processing
 
-#### [batch_convert_pdf_to_md.py](batch_convert_pdf_to_md.md)
+#### [batch_convert_pdf_to_md.py](pdf_to_md.md)
 
 Batch converts PDF files to Markdown using docling's Python API.
 
 **Key Feature**: Loads docling models once for all files (much faster than CLI approach)
 
 ```bash
-python scripts/batch_convert_pdf_to_md.py ./pdfs
+python scripts/pdf_to_md.py ./pdfs
 ```
 
 #### [chunk_pdf.py](chunk_pdf.md)
@@ -84,7 +84,7 @@ For PDFs under ~50 pages:
 
 ```bash
 # 1. Convert PDF to Markdown
-python scripts/batch_convert_pdf_to_md.py ./document.pdf
+python scripts/pdf_to_md.py ./document.pdf
 
 # 2. Translate
 python scripts/translate_md.py ./document.md -s Spanish -t English
@@ -99,7 +99,7 @@ For large PDFs, split first for better results:
 python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
 
 # 2. Convert chunks to Markdown
-python scripts/batch_convert_pdf_to_md.py ./chunks
+python scripts/pdf_to_md.py ./chunks
 
 # 3. Translate with context
 python scripts/translate_md.py ./chunks -s Spanish -t English
@@ -118,7 +118,7 @@ For documents with clear structure (books, manuals):
 
 ```bash
 # 1. Convert to Markdown
-python scripts/batch_convert_pdf_to_md.py ./book.pdf
+python scripts/pdf_to_md.py ./book.pdf
 
 # 2. Split by chapter headings
 python scripts/chunk_md.py ./book.md --heading-level 1 -o ./chapters
@@ -133,7 +133,7 @@ For processing with token limits:
 
 ```bash
 # 1. Convert to Markdown
-python scripts/batch_convert_pdf_to_md.py ./document.pdf
+python scripts/pdf_to_md.py ./document.pdf
 
 # 2. Chunk by token count (e.g., 2000 tokens for 8K models)
 python scripts/chunk_md.py ./document.md --mode tokens --max-tokens 2000

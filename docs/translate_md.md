@@ -232,7 +232,7 @@ python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./pdf-chunks
 
 ```bash
 # Batch convert all PDF chunks to markdown
-python scripts/batch_convert_pdf_to_md.py ./pdf-chunks
+python scripts/pdf_to_md.py ./pdf-chunks
 ```
 
 ### Step 3: Translate with Context
@@ -352,4 +352,4 @@ Error: ANTHROPIC_API_KEY not found in environment variables
 
 - [chunk_pdf.md](chunk_pdf.md) - Split PDFs before translation
 - [chunk_md.md](chunk_md.md) - Split markdown files
-- [batch_convert_pdf_to_md.md](batch_convert_pdf_to_md.md) - Convert PDFs to markdown
+- [batch_convert_pdf_to_md.md](pdf_to_md.md) - Convert PDFs to markdown
