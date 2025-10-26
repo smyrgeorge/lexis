@@ -21,47 +21,18 @@ pip install -r requirements.txt
 
 ### Configure API Keys
 
-Edit `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`
+Create a `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` like so:
 
-## Usage
+```properties
+# API Keys for Translation Services
+# Anthropic API Key (for Claude)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# OpenAI API Key (for ChatGPT)
+OPENAI_API_KEY=your_openai_api_key_here
 
-### Automated Pipeline (Recommended)
-
-The easiest way to translate a PDF is using the automated pipeline script. It handles all steps automatically:
-
-```bash
-# Place your PDF in a workspace subdirectory (e.g., workspace/my-book/book.pdf)
-# Then run the pipeline:
-python scripts/pipeline.py my-book/book.pdf -s Spanish -t English
-
-# With custom chunking (20 pages per chunk)
-python scripts/pipeline.py my-book/book.pdf -s Spanish -t English -p 20
-
-# Using OpenAI instead of Claude
-python scripts/pipeline.py my-book/book.pdf -s es -t en --provider openai
-
-# Skip chunking for small PDFs (process entire PDF at once)
-python scripts/pipeline.py my-book/book.pdf -s es -t en --skip-chunking
-
-# With custom dictionary for specialized terminology
-python scripts/pipeline.py my-book/book.pdf -s Spanish -t English -d workspace/my-book/dictionary.csv
 ```
 
-**Requirements:**
-- PDF must be in a subdirectory under `workspace/` (e.g., `workspace/project-name/document.pdf`)
-- PDF filename must contain only letters, numbers, dashes, underscores, and `.pdf` extension
-- Valid examples: `book.pdf`, `my-book.pdf`, `document_2024.pdf`
-
-**What the pipeline does:**
-1. Splits the PDF into chunks (configurable pages per chunk, default: 10)
-2. Converts all PDF chunks to Markdown format
-3. Translates Markdown files with context awareness
-
----
-
-### Individual Scripts
-
-For more control, you can run each step separately:
+## Usage
 
 #### Split PDF into Chunks
 
@@ -73,9 +44,8 @@ python scripts/chunk_pdf.py input.pdf -p 10 -o output_directory
 
 #### Batch Convert PDFs to Markdown
 
-Process all PDFs in a directory. The Python version is recommended as it loads docling models only once, making it much faster for multiple files.
+Process all PDFs in a directory.
 
-**Python version (recommended):**
 ```bash
 # Basic usage
 python scripts/pdf_to_md.py <directory_path>
@@ -87,19 +57,17 @@ python scripts/pdf_to_md.py <directory_path> --line-width 100
 python scripts/pdf_to_md.py <directory_path> --no-wrap
 ```
 
-**Bash version:**
-```bash
-./scripts/batch_convert_pdf_to_md.sh <directory_path>
-```
-
 Markdown files will be placed in the same directory as the source PDFs.
 
 #### Translate Markdown Files
 
-Translate markdown files using LLMs (Claude or ChatGPT). Supports both single files and batch processing of directories. Translated files are placed in the same directory as the source file by default.
+Translate markdown files using LLMs (Claude or ChatGPT). Supports both single files and batch processing of directories.
+Translated files are placed in the same directory as the source file by default.
 
 **Key Features:**
-- **Context-aware translation**: Automatically includes lines from previous/next chunks to improve translation quality across chunk boundaries
+
+- **Context-aware translation**: Automatically includes lines from previous/next chunks to improve translation quality
+  across chunk boundaries
 - **Smart filtering**: Skips already translated files when processing directories
 - **Custom dictionaries**: Support for specialized terminology
 
@@ -146,19 +114,15 @@ Comprehensive documentation for all scripts and workflows is available in the [d
 
 ### Quick Workflow Examples
 
-**Using the Automated Pipeline (Easiest):**
-```bash
-# Place PDF in workspace/project-name/
-python scripts/pipeline.py project-name/document.pdf -s Spanish -t English
-```
-
 **Manual Steps - Small PDF Translation:**
+
 ```bash
 python scripts/pdf_to_md.py ./document.pdf
 python scripts/translate_md.py ./document.md -s Spanish -t English
 ```
 
 **Manual Steps - Large PDF Translation:**
+
 ```bash
 python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
 python scripts/pdf_to_md.py ./chunks
