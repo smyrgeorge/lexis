@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 """
-Batch PDF to Markdown Converter
+PDF to Markdown Converter
 
-This script converts all PDF files in a directory to Markdown format using different
-conversion engines. Supported engines:
+This script converts PDF file(s) to Markdown format using different conversion engines.
+Supports both single files and batch processing of directories.
+
+Supported engines:
 - docling: Fast and efficient, loads models once for batch processing
 - marker: High-quality conversion with advanced layout detection
 
 Usage:
+    # Convert a single PDF file
+    python scripts/pdf_to_md.py file.pdf
+    python scripts/pdf_to_md.py file.pdf --engine marker
+
+    # Convert all PDFs in a directory
     python scripts/pdf_to_md.py <directory_path>
-    python scripts/pdf_to_md.py <directory_path> --engine marker
+    python scripts/pdf_to_md.py <directory_path> --engine docling
     python scripts/pdf_to_md.py <directory_path> --line-width 120
     python scripts/pdf_to_md.py <directory_path> --no-wrap
 """
@@ -36,6 +43,7 @@ try:
     from marker.converters.pdf import PdfConverter
     from marker.models import create_model_dict
     from marker.output import text_from_rendered
+    from marker.config.parser import ConfigParser
     MARKER_AVAILABLE = True
 except ImportError:
     MARKER_AVAILABLE = False
@@ -166,8 +174,12 @@ def process_pdfs_with_marker(
     # Initialize marker converter (models loaded once here)
     print("🔧 Initializing marker converter (loading models)...")
     try:
+        config = {
+            # "disable_image_extraction": "true",
+        }
         converter = PdfConverter(
             artifact_dict=create_model_dict(),
+            config=ConfigParser(config).generate_config_dict()
         )
         print("✓ Converter initialized\n")
     except Exception as e:
@@ -209,16 +221,16 @@ def process_pdfs_with_marker(
 
 
 def process_pdfs(
-        directory: str,
+        input_path: str,
         engine: str = "docling",
         line_width: Optional[int] = 120,
         wrap_lines: bool = True
 ) -> tuple[int, int]:
     """
-    Process all PDF files in a directory and convert them to Markdown.
+    Process PDF file(s) and convert them to Markdown.
 
     Args:
-        directory: Directory containing PDF files
+        input_path: Path to a PDF file or directory containing PDF files
         engine: Conversion engine to use ("docling" or "marker")
         line_width: Maximum line width for wrapping (default: 120)
         wrap_lines: Whether to wrap lines (default: True)
@@ -226,13 +238,24 @@ def process_pdfs(
     Returns:
         Tuple of (processed_count, failed_count)
     """
-    # Find all PDF files
-    pdf_dir = Path(directory)
-    pdf_files = sorted(pdf_dir.glob("*.pdf"))
+    # Determine if input is a file or directory
+    path = Path(input_path)
 
-    if not pdf_files:
-        print(f"No PDF files found in {directory}")
-        return 0, 0
+    if path.is_file():
+        # Single file mode
+        if path.suffix.lower() != '.pdf':
+            print(f"Error: {input_path} is not a PDF file")
+            return 0, 1
+        pdf_files = [path]
+    elif path.is_dir():
+        # Directory mode - find all PDF files
+        pdf_files = sorted(path.glob("*.pdf"))
+        if not pdf_files:
+            print(f"No PDF files found in {input_path}")
+            return 0, 0
+    else:
+        print(f"Error: {input_path} is not a valid file or directory")
+        return 0, 1
 
     print(f"Found {len(pdf_files)} PDF file(s) to process\n")
 
@@ -248,20 +271,20 @@ def process_pdfs(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Batch convert PDF files to Markdown using various engines",
+        description="Convert PDF file(s) to Markdown using various engines",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     parser.add_argument(
-        "directory",
-        help="Directory containing PDF files to process"
+        "input",
+        help="Path to a PDF file or directory containing PDF files to process"
     )
 
     parser.add_argument(
         "-e", "--engine",
         choices=["docling", "marker"],
         default="marker",
-        help="PDF to Markdown conversion engine (default: docling)"
+        help="PDF to Markdown conversion engine (default: marker)"
     )
 
     parser.add_argument(
@@ -279,9 +302,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate directory
-    if not os.path.isdir(args.directory):
-        print(f"Error: Directory '{args.directory}' does not exist")
+    # Validate input path exists
+    if not os.path.exists(args.input):
+        print(f"Error: '{args.input}' does not exist")
         sys.exit(1)
 
     # Check if selected engine is available
@@ -294,10 +317,14 @@ def main():
         print("Or use a different engine with --engine docling")
         sys.exit(1)
 
+    # Determine input type for display
+    input_path = Path(args.input)
+    input_type = "file" if input_path.is_file() else "directory"
+
     print("=" * 80)
-    print("Batch PDF to Markdown Converter")
+    print("PDF to Markdown Converter")
     print("=" * 80)
-    print(f"Input directory: {args.directory}")
+    print(f"Input {input_type}: {args.input}")
     print(f"Engine: {args.engine}")
     print(f"Output: Markdown files will be placed in the same directory as PDFs")
     if args.no_wrap:
@@ -308,7 +335,7 @@ def main():
     print()
 
     processed, failed = process_pdfs(
-        args.directory,
+        args.input,
         engine=args.engine,
         line_width=args.line_width,
         wrap_lines=not args.no_wrap
