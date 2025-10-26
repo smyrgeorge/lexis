@@ -33,10 +33,14 @@ import csv
 import os
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+
+# Suppress Pydantic V1 compatibility warning with Python 3.14+
+warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality.*", category=UserWarning)
 
 default_openai_model = "gpt-4o"
 default_claude_model = "claude-sonnet-4-5-20250929"
@@ -44,6 +48,7 @@ default_prompt = """
 Translate the following markdown text from {source} to {target}.
 Preserve all markdown formatting, structure, and syntax.
 Only translate the text content, not the markdown syntax itself.
+Only output the translated text, no additional text headings (e.g., "Translation:").
 """
 
 
