@@ -8,19 +8,19 @@ Supports chunking by:
 - Token count (approximate)
 
 # By heading (default - splits on # and ## headings)
-python chunk_md.py out/estado-del-poder.md
+python chunk_md.py out/my-book.md
 
 # By heading level (e.g., split only on # headings)
-python chunk_md.py out/estado-del-poder.md --heading-level 1
+python chunk_md.py out/my-book.md --heading-level 1
 
 # By character count (5000 chars per chunk, 200 char overlap)
-python chunk_md.py out/estado-del-poder.md --mode chars --max-chars 5000
+python chunk_md.py out/my-book.md --mode chars --max-chars 5000
 
 # By token count (approximate, ~1000 tokens per chunk)
-python chunk_md.py out/estado-del-poder.md --mode tokens --max-tokens 1000
+python chunk_md.py out/my-book.md --mode tokens --max-tokens 1000
 
 # Custom output directory
-python chunk_md.py out/estado-del-poder.md -o chunks/
+python chunk_md.py out/my-book.md -o chunks/
 """
 
 import argparse

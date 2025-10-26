@@ -1,6 +1,6 @@
-# Traducir
+# Lexis
 
-A collection of utilities for translating large documents.
+A collection of utilities for translating large documents and books.
 
 ## Setup
 
@@ -98,4 +98,27 @@ término2,term2
 
 ## Documentation
 
-See [docs](docs) for more details.
+Comprehensive documentation for all scripts and workflows is available in the [docs](docs) folder:
+
+- **[Overview & Workflows](docs/README.md)** - Complete guide, common workflows, and best practices
+- **[batch_convert_pdf_to_md.py](docs/batch_convert_pdf_to_md.md)** - Efficiently convert PDFs to Markdown
+- **[chunk_pdf.py](docs/chunk_pdf.md)** - Split large PDFs into chunks
+- **[chunk_md.py](docs/chunk_md.md)** - Intelligently chunk markdown files
+- **[translate_md.py](docs/translate_md.md)** - Context-aware translation with LLMs
+
+### Quick Workflow Examples
+
+**Small PDF Translation:**
+```bash
+python scripts/batch_convert_pdf_to_md.py ./document.pdf
+python scripts/translate_md.py ./document.md -s Spanish -t English
+```
+
+**Large PDF Translation (Recommended):**
+```bash
+python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
+python scripts/batch_convert_pdf_to_md.py ./chunks
+python scripts/translate_md.py ./chunks -s Spanish -t English
+```
+
+See [docs/README.md](docs/README.md) for complete workflows and advanced usage.

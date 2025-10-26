@@ -1,7 +1,7 @@
-# Traducir
+# Docling
 
 This repository contains documents and utilities for converting PDFs to Markdown. Below is a short guide to install
-Docling and use it to convert a PDF (for example, the file under `workspace/estado-del-poder/estado-del-poder.pdf`) into
+Docling and use it to convert a PDF (for example, the file under `workspace/my-book.pdf`) into
 Markdown.
 
 ## Install Docling
@@ -32,12 +32,12 @@ You can use Docling via its command-line interface (CLI).
 
 ```shell
 # Use one of the following commands to convert a PDF to Markdown:
-docling workspace/estado-del-poder/estado-del-poder.pdf --to md --output out
-docling workspace/estado-del-poder/estado-del-poder.pdf --to md --output out --image-export-mode placeholder
-docling workspace/estado-del-poder/estado-del-poder.pdf --to md --output out --no-tables --image-export-mode placeholder
+docling workspace/my-book.pdf --to md --output out
+docling workspace/my-book.pdf --to md --output out --image-export-mode placeholder
+docling workspace/my-book.pdf --to md --output out --no-tables --image-export-mode placeholder
 ```
 
-The resulting Markdown file will be written to `out/estado-del-poder.md`.
+The resulting Markdown file will be written to `out/my-book.md`.
 
 ## Notes
 
