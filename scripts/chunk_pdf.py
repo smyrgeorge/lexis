@@ -9,13 +9,10 @@ python scripts/chunk_pdf.py libros/estado-del-poder/estado-del-poder.pdf
 
 import argparse
 import os
+import sys
 from pathlib import Path
 
-try:
-    from pypdf import PdfReader, PdfWriter
-except ImportError:
-    print("Error: pypdf library not found. Install it with: pip install pypdf")
-    exit(1)
+from pypdf import PdfReader, PdfWriter
 
 
 def chunk_pdf(input_file: str, output_dir: str, pages_per_chunk: int = 10):
@@ -60,13 +57,13 @@ def chunk_pdf(input_file: str, output_dir: str, pages_per_chunk: int = 10):
         # Save the chunk
         output_file = os.path.join(
             output_dir,
-            f"{base_name}_chunk_{chunk_num:03d}_pages_{start_page+1}-{end_page}.pdf"
+            f"{base_name}_chunk_{chunk_num:03d}_pages_{start_page + 1}-{end_page}.pdf"
         )
 
         with open(output_file, "wb") as output_pdf:
             writer.write(output_pdf)
 
-        print(f"Created chunk {chunk_num}: {output_file} (pages {start_page+1}-{end_page})")
+        print(f"Created chunk {chunk_num}: {output_file} (pages {start_page + 1}-{end_page})")
         chunk_num += 1
 
     print(f"\nSuccessfully created {chunk_num - 1} chunks in {output_dir}")
@@ -106,4 +103,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Translation cancelled by user (Ctrl+C)")
+        sys.exit(130)  # Standard exit code for SIGINT

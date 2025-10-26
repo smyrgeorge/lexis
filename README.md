@@ -35,8 +35,21 @@ python scripts/chunk_pdf.py input.pdf -p 10 -o output_directory
 
 ### Batch Convert PDFs to Markdown
 
-Process all PDFs in a directory:
+Process all PDFs in a directory. The Python version is recommended as it loads docling models only once, making it much faster for multiple files.
 
+**Python version (recommended):**
+```bash
+# Basic usage
+python scripts/batch_convert_pdf_to_md.py <directory_path>
+
+# Custom line width
+python scripts/batch_convert_pdf_to_md.py <directory_path> --line-width 100
+
+# Disable line wrapping
+python scripts/batch_convert_pdf_to_md.py <directory_path> --no-wrap
+```
+
+**Bash version:**
 ```bash
 ./scripts/batch_convert_pdf_to_md.sh <directory_path>
 ```

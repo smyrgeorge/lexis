@@ -25,6 +25,7 @@ python chunk_md.py out/estado-del-poder.md -o chunks/
 
 import argparse
 import re
+import sys
 from pathlib import Path
 from typing import List, Tuple
 
@@ -233,4 +234,8 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Translation cancelled by user (Ctrl+C)")
+        sys.exit(130)  # Standard exit code for SIGINT
