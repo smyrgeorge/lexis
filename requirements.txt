@@ -1,0 +1,6 @@
+docling
+opencv-python
+pypdf
+python-dotenv
+anthropic
+openai
