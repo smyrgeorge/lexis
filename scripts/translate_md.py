@@ -3,14 +3,20 @@
 Markdown Translation Script
 
 Translates markdown files using LLMs (Claude or ChatGPT).
+Translated files are placed in the same directory as the source file by default.
+Supports both single files and batch processing of directories.
 
 Usage:
-# Basic translation with Claude
+# Translate a single file with Claude
 python scripts/translate_md.py input.md -s Spanish -t English
+# Translate all .md files in a directory
+python scripts/translate_md.py ./markdown-dir -s Spanish -t English
 # With OpenAI
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
 # With dictionary
 python scripts/translate_md.py input.md -s Spanish -t English -d dictionary.csv
+# With custom output directory
+python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
 """
 
 import argparse
@@ -20,11 +26,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    print("Error: python-dotenv not found. Install it with: pip install python-dotenv")
-    sys.exit(1)
+from dotenv import load_dotenv
+
+default_openai_model = "gpt-4o"
+default_claude_model = "claude-sonnet-4-5-20250929"
 
 
 def load_csv_dictionary(csv_path: str) -> str:
@@ -70,75 +75,71 @@ def load_csv_dictionary(csv_path: str) -> str:
 
 
 def translate_with_claude(
-    text: str,
-    prompt: str,
-    dictionary: str,
-    source_lang: str,
-    target_lang: str,
-    api_key: str,
-    model: str = "claude-3-5-sonnet-20241022"
+        text: str,
+        prompt: str,
+        dictionary: str,
+        source_lang: str,
+        target_lang: str,
+        api_key: str,
+        model: str = default_claude_model
 ) -> str:
     """Translate text using Claude API."""
-    try:
-        import anthropic
-    except ImportError:
-        print("Error: anthropic package not found. Install it with: pip install anthropic")
-        sys.exit(1)
+    import anthropic
+    from anthropic.types import MessageParam
 
     client = anthropic.Anthropic(api_key=api_key)
+    full_prompt = f"{prompt}\n{dictionary}\n## Text to Translate:\n\n{text}"
 
-    full_prompt = f"{prompt}\n{dictionary}\n## Text to Translate\n\n{text}"
+    messages: list[MessageParam] = [
+        {"role": "user", "content": full_prompt}
+    ]
 
     message = client.messages.create(
         model=model,
         max_tokens=8000,
-        messages=[
-            {"role": "user", "content": full_prompt}
-        ]
+        messages=messages
     )
 
     return message.content[0].text
 
 
 def translate_with_openai(
-    text: str,
-    prompt: str,
-    dictionary: str,
-    source_lang: str,
-    target_lang: str,
-    api_key: str,
-    model: str = "gpt-4o"
+        text: str,
+        prompt: str,
+        dictionary: str,
+        source_lang: str,
+        target_lang: str,
+        api_key: str,
+        model: str = default_openai_model
 ) -> str:
     """Translate text using OpenAI API."""
-    try:
-        from openai import OpenAI
-    except ImportError:
-        print("Error: openai package not found. Install it with: pip install openai")
-        sys.exit(1)
+    from openai import OpenAI
+    from openai.types.chat import ChatCompletionUserMessageParam
 
     client = OpenAI(api_key=api_key)
+    full_prompt = f"{prompt}\n{dictionary}\n## Text to Translate:\n\n{text}"
 
-    full_prompt = f"{prompt}\n{dictionary}\n## Text to Translate\n\n{text}"
+    messages: list[ChatCompletionUserMessageParam] = [
+        {"role": "user", "content": full_prompt}
+    ]
 
     response = client.chat.completions.create(
         model=model,
-        messages=[
-            {"role": "user", "content": full_prompt}
-        ]
+        messages=messages
     )
 
     return response.choices[0].message.content
 
 
 def translate_file(
-    input_file: str,
-    output_dir: str,
-    provider: str,
-    source_lang: str,
-    target_lang: str,
-    prompt: str,
-    dictionary_path: Optional[str],
-    model: Optional[str]
+        input_file: str,
+        output_dir: str,
+        provider: str,
+        source_lang: str,
+        target_lang: str,
+        prompt: str,
+        dictionary_path: Optional[str],
+        model: Optional[str]
 ) -> None:
     """
     Translate a markdown file.
@@ -173,13 +174,23 @@ def translate_file(
     print(f"Translating with {provider}...")
     if provider == "claude":
         translated = translate_with_claude(
-            content, prompt, dictionary, source_lang, target_lang, api_key,
-            model if model else "claude-3-5-sonnet-20241022"
+            content,
+            prompt,
+            dictionary,
+            source_lang,
+            target_lang,
+            api_key,
+            model if model else default_claude_model
         )
     else:  # openai
         translated = translate_with_openai(
-            content, prompt, dictionary, source_lang, target_lang, api_key,
-            model if model else "gpt-4o"
+            content,
+            prompt,
+            dictionary,
+            source_lang,
+            target_lang,
+            api_key,
+            model if model else default_openai_model
         )
 
     # Generate output filename
@@ -207,13 +218,13 @@ def main():
 
     parser.add_argument(
         "input_file",
-        help="Path to input markdown file"
+        help="Path to input markdown file or directory containing markdown files"
     )
 
     parser.add_argument(
         "-o", "--output-dir",
-        default="./translations",
-        help="Output directory for translated files"
+        default=None,
+        help="Output directory for translated files (default: same directory as input file)"
     )
 
     parser.add_argument(
@@ -253,25 +264,95 @@ def main():
 
     args = parser.parse_args()
 
+    input_path = Path(args.input_file)
+
+    # Check if input exists
+    if not input_path.exists():
+        print(f"Error: {args.input_file} does not exist")
+        sys.exit(1)
+
+    # Determine if input is a file or directory
+    if input_path.is_file():
+        # Single file mode
+        files_to_process = [input_path]
+    elif input_path.is_dir():
+        # Directory mode - find all .md files
+        all_md_files = sorted(input_path.glob("*.md"))
+        if not all_md_files:
+            print(f"Error: No .md files found in directory {args.input_file}")
+            sys.exit(1)
+
+        # Filter out already translated files (those ending with _{target_lang}.md)
+        files_to_process = []
+        skipped = 0
+        for f in all_md_files:
+            # Check if file ends with _{target_lang}.md
+            if f.stem.endswith(f"_{args.target_lang}"):
+                skipped += 1
+                continue
+            # Also skip if the translated version already exists
+            translated_file = f.parent / f"{f.stem}_{args.target_lang}.md"
+            if translated_file.exists():
+                print(f"⊘ Skipping {f.name} (translation already exists)")
+                skipped += 1
+                continue
+            files_to_process.append(f)
+
+        if not files_to_process:
+            print(f"No files to translate. All files are already translated or skipped.")
+            sys.exit(0)
+
+        print(f"Found {len(all_md_files)} markdown files ({skipped} already translated, {len(files_to_process)} to process)")
+    else:
+        print(f"Error: {args.input_file} is not a file or directory")
+        sys.exit(1)
+
     # Format prompt with languages
     formatted_prompt = args.prompt.format(
         source=args.source_lang,
         target=args.target_lang
     )
 
-    try:
-        translate_file(
-            args.input_file,
-            args.output_dir,
-            args.provider,
-            args.source_lang,
-            args.target_lang,
-            formatted_prompt,
-            args.dictionary,
-            args.model
-        )
-    except Exception as e:
-        print(f"Error: {e}")
+    # Process files
+    processed = 0
+    failed = 0
+
+    for file_path in files_to_process:
+        # If no output directory specified, use the same directory as the input file
+        output_dir = args.output_dir
+        if output_dir is None:
+            output_dir = str(file_path.parent)
+
+        print(f"\n{'='*80}")
+        print(f"Processing: {file_path.name}")
+        print(f"{'='*80}")
+
+        try:
+            translate_file(
+                str(file_path),
+                output_dir,
+                args.provider,
+                args.source_lang,
+                args.target_lang,
+                formatted_prompt,
+                args.dictionary,
+                args.model
+            )
+            processed += 1
+        except Exception as e:
+            print(f"✗ Error processing {file_path.name}: {e}")
+            failed += 1
+
+    # Summary
+    if len(files_to_process) > 1:
+        print(f"\n{'='*80}")
+        print(f"Summary:")
+        print(f"  Total files: {len(files_to_process)}")
+        print(f"  Successfully translated: {processed}")
+        print(f"  Failed: {failed}")
+        print(f"{'='*80}")
+
+    if failed > 0:
         sys.exit(1)
 
 

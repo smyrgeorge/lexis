@@ -45,11 +45,14 @@ Markdown files will be placed in the same directory as the source PDFs.
 
 ### Translate Markdown Files
 
-Translate markdown files using LLMs (Claude or ChatGPT):
+Translate markdown files using LLMs (Claude or ChatGPT). Supports both single files and batch processing of directories. Translated files are placed in the same directory as the source file by default.
 
 ```bash
-# Using Claude (default)
+# Translate a single file with Claude (default)
 python scripts/translate_md.py input.md -s Spanish -t English
+
+# Translate all .md files in a directory
+python scripts/translate_md.py ./markdown-dir -s Spanish -t English
 
 # Using OpenAI
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
