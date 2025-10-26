@@ -22,6 +22,6 @@ Trunk.toml
 pgmq-extension/results/
 pgmq-extension/regression.*
 pgmq-extension/output_iso/
-#.env
+.env
 .venv/*
 .python-version
