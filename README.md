@@ -25,7 +25,45 @@ Edit `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`
 
 ## Usage
 
-### Split PDF into Chunks
+### Automated Pipeline (Recommended)
+
+The easiest way to translate a PDF is using the automated pipeline script. It handles all steps automatically:
+
+```bash
+# Place your PDF in a workspace subdirectory (e.g., workspace/my-book/book.pdf)
+# Then run the pipeline:
+python scripts/pipeline.py my-book/book.pdf -s Spanish -t English
+
+# With custom chunking (20 pages per chunk)
+python scripts/pipeline.py my-book/book.pdf -s Spanish -t English -p 20
+
+# Using OpenAI instead of Claude
+python scripts/pipeline.py my-book/book.pdf -s es -t en --provider openai
+
+# Skip chunking for small PDFs (process entire PDF at once)
+python scripts/pipeline.py my-book/book.pdf -s es -t en --skip-chunking
+
+# With custom dictionary for specialized terminology
+python scripts/pipeline.py my-book/book.pdf -s Spanish -t English -d workspace/my-book/dictionary.csv
+```
+
+**Requirements:**
+- PDF must be in a subdirectory under `workspace/` (e.g., `workspace/project-name/document.pdf`)
+- PDF filename must contain only letters, numbers, dashes, underscores, and `.pdf` extension
+- Valid examples: `book.pdf`, `my-book.pdf`, `document_2024.pdf`
+
+**What the pipeline does:**
+1. Splits the PDF into chunks (configurable pages per chunk, default: 10)
+2. Converts all PDF chunks to Markdown format
+3. Translates Markdown files with context awareness
+
+---
+
+### Individual Scripts
+
+For more control, you can run each step separately:
+
+#### Split PDF into Chunks
 
 Split a large PDF into smaller chunks:
 
@@ -33,7 +71,7 @@ Split a large PDF into smaller chunks:
 python scripts/chunk_pdf.py input.pdf -p 10 -o output_directory
 ```
 
-### Batch Convert PDFs to Markdown
+#### Batch Convert PDFs to Markdown
 
 Process all PDFs in a directory. The Python version is recommended as it loads docling models only once, making it much faster for multiple files.
 
@@ -56,7 +94,7 @@ python scripts/batch_convert_pdf_to_md.py <directory_path> --no-wrap
 
 Markdown files will be placed in the same directory as the source PDFs.
 
-### Translate Markdown Files
+#### Translate Markdown Files
 
 Translate markdown files using LLMs (Claude or ChatGPT). Supports both single files and batch processing of directories. Translated files are placed in the same directory as the source file by default.
 
@@ -108,13 +146,19 @@ Comprehensive documentation for all scripts and workflows is available in the [d
 
 ### Quick Workflow Examples
 
-**Small PDF Translation:**
+**Using the Automated Pipeline (Easiest):**
+```bash
+# Place PDF in workspace/project-name/
+python scripts/pipeline.py project-name/document.pdf -s Spanish -t English
+```
+
+**Manual Steps - Small PDF Translation:**
 ```bash
 python scripts/batch_convert_pdf_to_md.py ./document.pdf
 python scripts/translate_md.py ./document.md -s Spanish -t English
 ```
 
-**Large PDF Translation (Recommended):**
+**Manual Steps - Large PDF Translation:**
 ```bash
 python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
 python scripts/batch_convert_pdf_to_md.py ./chunks
