@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Batch PDF to Markdown Converter using Docling
+Batch PDF to Markdown Converter
 
-This script converts all PDF files in a directory to Markdown format using docling's
-Python API. Unlike the bash script version, this loads the docling models only once,
-making it much more efficient for processing multiple files.
+This script converts all PDF files in a directory to Markdown format using different
+conversion engines. Supported engines:
+- docling: Fast and efficient, loads models once for batch processing
+- marker: High-quality conversion with advanced layout detection
 
 Usage:
     python scripts/pdf_to_md.py <directory_path>
+    python scripts/pdf_to_md.py <directory_path> --engine marker
     python scripts/pdf_to_md.py <directory_path> --line-width 120
     python scripts/pdf_to_md.py <directory_path> --no-wrap
 """
@@ -19,10 +21,24 @@ import textwrap
 from pathlib import Path
 from typing import Optional
 
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter
-from docling.document_converter import PdfFormatOption
+# Docling imports
+try:
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter
+    from docling.document_converter import PdfFormatOption
+    DOCLING_AVAILABLE = True
+except ImportError:
+    DOCLING_AVAILABLE = False
+
+# Marker imports
+try:
+    from marker.converters.pdf import PdfConverter
+    from marker.models import create_model_dict
+    from marker.output import text_from_rendered
+    MARKER_AVAILABLE = True
+except ImportError:
+    MARKER_AVAILABLE = False
 
 
 def wrap_markdown_lines(content: str, width: int = 120) -> str:
@@ -60,22 +76,26 @@ def wrap_markdown_lines(content: str, width: int = 120) -> str:
     return '\n'.join(wrapped_lines)
 
 
-def process_pdfs(
-        directory: str,
+def process_pdfs_with_docling(
+        pdf_files: list[Path],
         line_width: Optional[int] = 120,
         wrap_lines: bool = True
 ) -> tuple[int, int]:
     """
-    Process all PDF files in a directory and convert them to Markdown.
+    Process PDF files using the docling engine.
 
     Args:
-        directory: Directory containing PDF files
+        pdf_files: List of PDF file paths to process
         line_width: Maximum line width for wrapping (default: 120)
         wrap_lines: Whether to wrap lines (default: True)
 
     Returns:
         Tuple of (processed_count, failed_count)
     """
+    if not DOCLING_AVAILABLE:
+        print("Error: docling is not installed. Install it with: pip install docling")
+        return 0, len(pdf_files)
+
     # Setup pipeline options
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_table_structure = False  # Equivalent to --no-tables
@@ -88,16 +108,6 @@ def process_pdfs(
         }
     )
     print("✓ Converter initialized\n")
-
-    # Find all PDF files
-    pdf_dir = Path(directory)
-    pdf_files = sorted(pdf_dir.glob("*.pdf"))
-
-    if not pdf_files:
-        print(f"No PDF files found in {directory}")
-        return 0, 0
-
-    print(f"Found {len(pdf_files)} PDF file(s) to process\n")
 
     processed = 0
     failed = 0
@@ -133,15 +143,125 @@ def process_pdfs(
     return processed, failed
 
 
+def process_pdfs_with_marker(
+        pdf_files: list[Path],
+        line_width: Optional[int] = 120,
+        wrap_lines: bool = True
+) -> tuple[int, int]:
+    """
+    Process PDF files using the marker engine.
+
+    Args:
+        pdf_files: List of PDF file paths to process
+        line_width: Maximum line width for wrapping (default: 120)
+        wrap_lines: Whether to wrap lines (default: True)
+
+    Returns:
+        Tuple of (processed_count, failed_count)
+    """
+    if not MARKER_AVAILABLE:
+        print("Error: marker is not installed. Install it with: pip install marker-pdf")
+        return 0, len(pdf_files)
+
+    # Initialize marker converter (models loaded once here)
+    print("🔧 Initializing marker converter (loading models)...")
+    try:
+        converter = PdfConverter(
+            artifact_dict=create_model_dict(),
+        )
+        print("✓ Converter initialized\n")
+    except Exception as e:
+        print(f"Error initializing marker converter: {e}")
+        return 0, len(pdf_files)
+
+    processed = 0
+    failed = 0
+
+    for pdf_file in pdf_files:
+        print(f"📄 Processing: {pdf_file.name}")
+
+        try:
+            # Convert the PDF
+            rendered = converter(str(pdf_file))
+
+            # Extract markdown text
+            markdown_content, _, _ = text_from_rendered(rendered)
+
+            # Wrap lines if enabled
+            if wrap_lines and line_width:
+                markdown_content = wrap_markdown_lines(markdown_content, line_width)
+
+            # Save to the same directory as the PDF
+            output_file = pdf_file.with_suffix('.md')
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name}")
+            processed += 1
+
+        except Exception as e:
+            print(f"✗ Failed to process {pdf_file.name}: {e}")
+            failed += 1
+
+        print()
+
+    return processed, failed
+
+
+def process_pdfs(
+        directory: str,
+        engine: str = "docling",
+        line_width: Optional[int] = 120,
+        wrap_lines: bool = True
+) -> tuple[int, int]:
+    """
+    Process all PDF files in a directory and convert them to Markdown.
+
+    Args:
+        directory: Directory containing PDF files
+        engine: Conversion engine to use ("docling" or "marker")
+        line_width: Maximum line width for wrapping (default: 120)
+        wrap_lines: Whether to wrap lines (default: True)
+
+    Returns:
+        Tuple of (processed_count, failed_count)
+    """
+    # Find all PDF files
+    pdf_dir = Path(directory)
+    pdf_files = sorted(pdf_dir.glob("*.pdf"))
+
+    if not pdf_files:
+        print(f"No PDF files found in {directory}")
+        return 0, 0
+
+    print(f"Found {len(pdf_files)} PDF file(s) to process\n")
+
+    # Process using the selected engine
+    if engine == "docling":
+        return process_pdfs_with_docling(pdf_files, line_width, wrap_lines)
+    elif engine == "marker":
+        return process_pdfs_with_marker(pdf_files, line_width, wrap_lines)
+    else:
+        print(f"Error: Unknown engine '{engine}'. Supported engines: docling, marker")
+        return 0, len(pdf_files)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Batch convert PDF files to Markdown using docling",
+        description="Batch convert PDF files to Markdown using various engines",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     parser.add_argument(
         "directory",
         help="Directory containing PDF files to process"
+    )
+
+    parser.add_argument(
+        "-e", "--engine",
+        choices=["docling", "marker"],
+        default="marker",
+        help="PDF to Markdown conversion engine (default: docling)"
     )
 
     parser.add_argument(
@@ -164,10 +284,21 @@ def main():
         print(f"Error: Directory '{args.directory}' does not exist")
         sys.exit(1)
 
+    # Check if selected engine is available
+    if args.engine == "docling" and not DOCLING_AVAILABLE:
+        print("Error: docling is not installed. Install it with: pip install docling")
+        print("Or use a different engine with --engine marker")
+        sys.exit(1)
+    elif args.engine == "marker" and not MARKER_AVAILABLE:
+        print("Error: marker is not installed. Install it with: pip install marker-pdf")
+        print("Or use a different engine with --engine docling")
+        sys.exit(1)
+
     print("=" * 80)
     print("Batch PDF to Markdown Converter")
     print("=" * 80)
     print(f"Input directory: {args.directory}")
+    print(f"Engine: {args.engine}")
     print(f"Output: Markdown files will be placed in the same directory as PDFs")
     if args.no_wrap:
         print(f"Line wrapping: Disabled")
@@ -178,6 +309,7 @@ def main():
 
     processed, failed = process_pdfs(
         args.directory,
+        engine=args.engine,
         line_width=args.line_width,
         wrap_lines=not args.no_wrap
     )
