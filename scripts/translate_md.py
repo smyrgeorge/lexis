@@ -31,6 +31,7 @@ python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
 import argparse
 import csv
 import os
+import re
 import sys
 import time
 import warnings
@@ -118,7 +119,10 @@ def translate_with_claude(
         messages=messages
     )
 
-    return message.content[0].text
+    text = message.content[0].text
+    if not text or not text.strip():
+        raise ValueError("API returned empty translation")
+    return text
 
 
 def translate_with_openai(
@@ -144,7 +148,25 @@ def translate_with_openai(
         messages=messages
     )
 
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    if not content or not content.strip():
+        raise ValueError("API returned empty translation")
+    return content
+
+
+def natural_sort_key(path: Path) -> list:
+    """
+    Generate a sort key for natural sorting of file names.
+    This ensures that file10.md comes after file2.md, not before.
+
+    Args:
+        path: Path object to generate sort key for
+
+    Returns:
+        List of strings and integers for natural sorting
+    """
+    return [int(c) if c.isdigit() else c.lower()
+            for c in re.split(r'(\d+)', str(path.name))]
 
 
 def get_file_lines(file_path: str, num_lines: int, from_end: bool = False) -> list[str]:
@@ -381,7 +403,7 @@ def main():
         files_to_process = [input_path]
     elif input_path.is_dir():
         # Directory mode - find all .md files
-        all_md_files = sorted(input_path.glob("*.md"))
+        all_md_files = sorted(input_path.glob("*.md"), key=natural_sort_key)
         if not all_md_files:
             print(f"Error: No .md files found in directory {args.input_file}")
             sys.exit(1)
@@ -418,6 +440,29 @@ def main():
         target=args.target_lang
     )
 
+    # Show cost estimation for batch processing
+    if len(files_to_process) > 1:
+        total_chars = 0
+        for file_path in files_to_process:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    total_chars += len(f.read())
+            except Exception:
+                pass  # Skip files that can't be read
+
+        est_tokens = total_chars // 4  # Rough estimate: 1 token ≈ 4 characters
+
+        print(f"\n{'=' * 80}")
+        print(f"📊 Batch Translation Estimate:")
+        print(f"   Files to process: {len(files_to_process)}")
+        print(f"   Total characters: {total_chars:,}")
+        print(f"   Estimated input tokens: ~{est_tokens:,}")
+        print(f"   Provider: {args.provider}")
+        print(f"   Model: {args.model if args.model else (default_claude_model if args.provider == 'claude' else default_openai_model)}")
+        print(f"\n   Note: Actual costs depend on output length and provider pricing.")
+        print(f"   Context from adjacent chunks will add additional tokens.")
+        print(f"{'=' * 80}")
+
     # Process files
     processed = 0
     failed = 0
@@ -447,7 +492,7 @@ def main():
             all_source_files = sorted([
                 f for f in input_path.glob("*.md")
                 if not f.stem.endswith(f"_{args.target_lang}")
-            ])
+            ], key=natural_sort_key)
 
             # Find current file's position in the complete list
             try:
@@ -477,7 +522,7 @@ def main():
                 pass
 
         print(f"\n{'=' * 80}")
-        print(f"Processing: {file_path.name}")
+        print(f"[{idx + 1}/{len(files_to_process)}] Processing: {file_path.name}")
         print(f"  Characters: {current_char_count:,}")
         print(f"  First line: {current_first_line[:75]}{'...' if len(current_first_line) > 75 else ''}")
         if prev_file and args.context_lines > 0:
