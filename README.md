@@ -2,6 +2,15 @@
 
 A collection of utilities for translating large documents and books.
 
+## About
+
+Lexis is a powerful toolkit designed to streamline the process of translating lengthy documents, books, and PDFs using
+modern Large Language Models (LLMs) like Claude and ChatGPT. The project addresses the challenges of translating large
+documents by providing utilities to split PDFs into manageable chunks, convert them to Markdown format, and perform
+context-aware translations that maintain consistency across chunk boundaries. Whether you're working with a small
+article or a multi-hundred-page book, Lexis provides the tools to automate and optimize the translation workflow while
+preserving formatting and ensuring high-quality results.
+
 ## Setup
 
 ### Initialize Python Environment
