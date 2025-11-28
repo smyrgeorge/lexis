@@ -1,11 +1,15 @@
 # Lexis
 
+![Alt text](docs/img/logo-wide.png)
+
 A collection of utilities for translating large documents and books.
 
 ## About
 
 Lexis is a powerful toolkit designed to streamline the process of translating lengthy documents, books, and PDFs using
-modern Large Language Models (LLMs) like Claude and ChatGPT. The project addresses the challenges of translating large
+modern Large Language Models (LLMs) like Claude and ChatGPT.
+
+The project addresses the challenges of translating large
 documents by providing utilities to split PDFs into manageable chunks, convert them to Markdown format, and perform
 context-aware translations that maintain consistency across chunk boundaries. Whether you're working with a small
 article or a multi-hundred-page book, Lexis provides the tools to automate and optimize the translation workflow while
@@ -43,7 +47,16 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ## Usage
 
-#### Split PDF into Chunks
+To translate a large PDF document, you'll typically follow a three-step process:
+
+1. **[Split the PDF](#1-split-a-pdf-file-into-chunks)** (optional, for large files) - Break large PDFs into smaller
+   chunks
+2. **[Convert to Markdown](#2-convert-pdfs-to-markdown)** - Transform PDF files into editable Markdown format
+3. **[Translate](#3-translate-markdown-files)** - Use LLMs to translate the Markdown files to your target language
+
+Each step is detailed below.
+
+#### 1. Split a PDF File into Chunks
 
 Split a large PDF into smaller chunks:
 
@@ -51,7 +64,7 @@ Split a large PDF into smaller chunks:
 python scripts/chunk_pdf.py input.pdf -p 10 -o output_directory
 ```
 
-#### Batch Convert PDFs to Markdown
+#### 2. Convert PDFs to Markdown
 
 Process all PDFs in a directory.
 
@@ -68,7 +81,7 @@ python scripts/pdf_to_md.py <directory_path> --no-wrap
 
 Markdown files will be placed in the same directory as the source PDFs.
 
-#### Translate Markdown Files
+#### 3. Translate Markdown Files
 
 Translate markdown files using LLMs (Claude or ChatGPT). Supports both single files and batch processing of directories.
 Translated files are placed in the same directory as the source file by default.
@@ -110,16 +123,6 @@ source,target
 término1,term1
 término2,term2
 ```
-
-## Documentation
-
-Comprehensive documentation for all scripts and workflows is available in the [docs](docs) folder:
-
-- **[Overview & Workflows](docs/README.md)** - Complete guide, common workflows, and best practices
-- **[batch_convert_pdf_to_md.py](docs/pdf_to_md.md)** - Efficiently convert PDFs to Markdown
-- **[chunk_pdf.py](docs/chunk_pdf.md)** - Split large PDFs into chunks
-- **[chunk_md.py](docs/chunk_md.md)** - Intelligently chunk markdown files
-- **[translate_md.py](docs/translate_md.md)** - Context-aware translation with LLMs
 
 ### Quick Workflow Examples
 
