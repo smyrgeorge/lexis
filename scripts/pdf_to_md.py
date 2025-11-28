@@ -23,8 +23,10 @@ Usage:
 
 import argparse
 import os
+import re
 import sys
 import textwrap
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +49,21 @@ try:
     MARKER_AVAILABLE = True
 except ImportError:
     MARKER_AVAILABLE = False
+
+
+def natural_sort_key(path: Path) -> list:
+    """
+    Generate a sort key for natural sorting of file names.
+    This ensures that file10.pdf comes after file2.pdf, not before.
+
+    Args:
+        path: Path object to generate sort key for
+
+    Returns:
+        List of strings and integers for natural sorting
+    """
+    return [int(c) if c.isdigit() else c.lower()
+            for c in re.split(r'(\d+)', str(path.name))]
 
 
 def wrap_markdown_lines(content: str, width: int = 120) -> str:
@@ -104,6 +121,24 @@ def process_pdfs_with_docling(
         print("Error: docling is not installed. Install it with: pip install docling")
         return 0, len(pdf_files)
 
+    # Filter out PDFs that already have .md files
+    files_to_process = []
+    skipped = 0
+    for pdf_file in pdf_files:
+        md_file = pdf_file.with_suffix('.md')
+        if md_file.exists():
+            print(f"⊘ Skipping {pdf_file.name} (markdown file already exists)")
+            skipped += 1
+        else:
+            files_to_process.append(pdf_file)
+
+    if not files_to_process:
+        print("No files to convert. All PDFs already have markdown files.")
+        return len(pdf_files) - skipped, 0
+
+    if skipped > 0:
+        print(f"\nFound {len(pdf_files)} PDF files ({skipped} already converted, {len(files_to_process)} to process)\n")
+
     # Setup pipeline options
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_table_structure = False  # Equivalent to --no-tables
@@ -120,11 +155,13 @@ def process_pdfs_with_docling(
     processed = 0
     failed = 0
 
-    for pdf_file in pdf_files:
-        print(f"📄 Processing: {pdf_file.name}")
+    for idx, pdf_file in enumerate(files_to_process):
+        file_size_mb = pdf_file.stat().st_size / (1024 * 1024)
+        print(f"📄 [{idx + 1}/{len(files_to_process)}] Processing: {pdf_file.name} ({file_size_mb:.2f} MB)")
 
         try:
             # Convert the PDF
+            start_time = time.time()
             result = converter.convert(str(pdf_file))
 
             # Export to markdown
@@ -139,7 +176,8 @@ def process_pdfs_with_docling(
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)
 
-            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name}")
+            elapsed = time.time() - start_time
+            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name} ({elapsed:.2f}s)")
             processed += 1
 
         except Exception as e:
@@ -171,6 +209,24 @@ def process_pdfs_with_marker(
         print("Error: marker is not installed. Install it with: pip install marker-pdf")
         return 0, len(pdf_files)
 
+    # Filter out PDFs that already have .md files
+    files_to_process = []
+    skipped = 0
+    for pdf_file in pdf_files:
+        md_file = pdf_file.with_suffix('.md')
+        if md_file.exists():
+            print(f"⊘ Skipping {pdf_file.name} (markdown file already exists)")
+            skipped += 1
+        else:
+            files_to_process.append(pdf_file)
+
+    if not files_to_process:
+        print("No files to convert. All PDFs already have markdown files.")
+        return len(pdf_files) - skipped, 0
+
+    if skipped > 0:
+        print(f"\nFound {len(pdf_files)} PDF files ({skipped} already converted, {len(files_to_process)} to process)\n")
+
     # Initialize marker converter (models loaded once here)
     print("🔧 Initializing marker converter (loading models)...")
     try:
@@ -189,11 +245,13 @@ def process_pdfs_with_marker(
     processed = 0
     failed = 0
 
-    for pdf_file in pdf_files:
-        print(f"📄 Processing: {pdf_file.name}")
+    for idx, pdf_file in enumerate(files_to_process):
+        file_size_mb = pdf_file.stat().st_size / (1024 * 1024)
+        print(f"📄 [{idx + 1}/{len(files_to_process)}] Processing: {pdf_file.name} ({file_size_mb:.2f} MB)")
 
         try:
             # Convert the PDF
+            start_time = time.time()
             rendered = converter(str(pdf_file))
 
             # Extract markdown text
@@ -208,7 +266,8 @@ def process_pdfs_with_marker(
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)
 
-            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name}")
+            elapsed = time.time() - start_time
+            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name} ({elapsed:.2f}s)")
             processed += 1
 
         except Exception as e:
@@ -249,7 +308,7 @@ def process_pdfs(
         pdf_files = [path]
     elif path.is_dir():
         # Directory mode - find all PDF files
-        pdf_files = sorted(path.glob("*.pdf"))
+        pdf_files = sorted(path.glob("*.pdf"), key=natural_sort_key)
         if not pdf_files:
             print(f"No PDF files found in {input_path}")
             return 0, 0
@@ -334,12 +393,14 @@ def main():
     print("=" * 80)
     print()
 
+    batch_start_time = time.time()
     processed, failed = process_pdfs(
         args.input,
         engine=args.engine,
         line_width=args.line_width,
         wrap_lines=not args.no_wrap
     )
+    total_time = time.time() - batch_start_time
 
     # Summary
     print("=" * 80)
@@ -347,6 +408,7 @@ def main():
     print(f"  Total processed: {processed}")
     if failed > 0:
         print(f"  Total failed: {failed}")
+    print(f"  Total time: {total_time:.2f}s")
     print("=" * 80)
 
     if failed > 0:
@@ -357,5 +419,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Translation cancelled by user (Ctrl+C)")
+        print("\n\n⚠️  Conversion cancelled by user (Ctrl+C)")
         sys.exit(130)  # Standard exit code for SIGINT
