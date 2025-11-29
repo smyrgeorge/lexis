@@ -33,6 +33,7 @@ import csv
 import os
 import re
 import sys
+import textwrap
 import time
 import warnings
 from pathlib import Path
@@ -154,13 +155,48 @@ def translate_with_openai(
     return content
 
 
+def wrap_markdown_lines(content: str, width: int = 120) -> str:
+    """
+    Wrap markdown lines to a specified width while preserving the structure.
+
+    Args:
+        content: The Markdown content
+        width: Maximum line width (default: 120)
+
+    Returns:
+        Wrapped markdown content
+    """
+    lines = content.split('\n')
+    wrapped_lines = []
+
+    for line in lines:
+        # Don't wrap empty lines, headers, code blocks, or lines that are already short
+        if (not line.strip() or
+                line.strip().startswith('#') or
+                line.strip().startswith('```') or
+                line.strip().startswith('|') or  # Tables
+                len(line) <= width):
+            wrapped_lines.append(line)
+        else:
+            # Wrap long lines
+            wrapped = textwrap.fill(
+                line,
+                width=width,
+                break_long_words=False,
+                break_on_hyphens=False
+            )
+            wrapped_lines.append(wrapped)
+
+    return '\n'.join(wrapped_lines)
+
+
 def natural_sort_key(path: Path) -> list:
     """
     Generate a sort key for natural sorting of file names.
     This ensures that file10.md comes after file2.md, not before.
 
     Args:
-        path: Path object to generate sort key for
+        path: Path object to generate a sort key for
 
     Returns:
         List of strings and integers for natural sorting
@@ -205,10 +241,12 @@ def translate_file(
         model: Optional[str],
         prev_file: Optional[str] = None,
         next_file: Optional[str] = None,
-        context_lines: int = 5
+        context_lines: int = 5,
+        line_width: Optional[int] = 120,
+        wrap_lines: bool = True
 ) -> None:
     """
-    Translate a markdown file.
+    Translate a Markdown file.
 
     Args:
         input_file: Path to input markdown file
@@ -222,8 +260,10 @@ def translate_file(
         prev_file: Optional path to previous chunk file
         next_file: Optional path to next chunk file
         context_lines: Number of lines to include from prev/next chunks for context
+        line_width: Maximum line width for wrapping (default: 120)
+        wrap_lines: Whether to wrap lines (default: True)
     """
-    # Read input file
+    # Read the input file
     with open(input_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
@@ -261,7 +301,7 @@ def translate_file(
                 "---\n"
             )
 
-    # Add main content marker if we have any context
+    # Add the main content marker if we have any context
     if context_prefix or context_suffix:
         content_with_context = (
             context_prefix +
@@ -312,12 +352,16 @@ def translate_file(
 
     elapsed_time = time.time() - start_time
 
+    # Wrap lines if enabled
+    if wrap_lines and line_width:
+        translated = wrap_markdown_lines(translated, line_width)
+
     # Generate output filename
     input_path = Path(input_file)
     output_filename = f"{input_path.stem}_{target_lang}.md"
     output_path = Path(output_dir) / output_filename
 
-    # Create output directory if it doesn't exist
+    # Create the output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
     # Write output
@@ -388,6 +432,19 @@ def main():
         help="Number of lines from previous/next chunks to include as context (default: 5, set to 0 to disable)"
     )
 
+    parser.add_argument(
+        "--line-width",
+        type=int,
+        default=120,
+        help="Maximum line width for wrapping (default: 120)"
+    )
+
+    parser.add_argument(
+        "--no-wrap",
+        action="store_true",
+        help="Disable line wrapping"
+    )
+
     args = parser.parse_args()
 
     input_path = Path(args.input_file)
@@ -397,7 +454,7 @@ def main():
         print(f"Error: {args.input_file} does not exist")
         sys.exit(1)
 
-    # Determine if input is a file or directory
+    # Determine if the input is a file or directory
     if input_path.is_file():
         # Single file mode
         files_to_process = [input_path]
@@ -412,7 +469,7 @@ def main():
         files_to_process = []
         skipped = 0
         for f in all_md_files:
-            # Check if file ends with _{target_lang}.md
+            # Check if the file ends with _{target_lang}.md
             if f.stem.endswith(f"_{args.target_lang}"):
                 skipped += 1
                 continue
@@ -450,7 +507,7 @@ def main():
             except Exception:
                 pass  # Skip files that can't be read
 
-        est_tokens = total_chars // 4  # Rough estimate: 1 token ≈ 4 characters
+        est_tokens = total_chars // 4  # Estimate: 1 token ≈ 4 characters
 
         print(f"\n{'=' * 80}")
         print(f"📊 Batch Translation Estimate:")
@@ -473,7 +530,7 @@ def main():
         if output_dir is None:
             output_dir = str(file_path.parent)
 
-        # Read current file for stats
+        # Read the current file for stats
         with open(file_path, 'r', encoding='utf-8') as f:
             current_content = f.read()
             current_lines = current_content.split('\n')
@@ -494,7 +551,7 @@ def main():
                 if not f.stem.endswith(f"_{args.target_lang}")
             ], key=natural_sort_key)
 
-            # Find current file's position in the complete list
+            # Find the current file's position in the complete list
             try:
                 current_idx = all_source_files.index(file_path)
 
@@ -503,10 +560,10 @@ def main():
                     prev_file = str(all_source_files[current_idx - 1])
                     try:
                         with open(prev_file, 'r', encoding='utf-8') as f:
-                            # Get the LAST non-empty line from previous chunk
+                            # Get the LAST non-empty line from the previous chunk
                             lines = [line.strip() for line in f.readlines() if line.strip()]
                             prev_first_line = lines[-1] if lines else ""
-                    except:
+                    except Exception:
                         pass
 
                 # Next file (if not last)
@@ -515,10 +572,10 @@ def main():
                     try:
                         with open(next_file, 'r', encoding='utf-8') as f:
                             next_first_line = f.readline().strip()
-                    except:
+                    except Exception:
                         pass
             except ValueError:
-                # File not found in list, skip context
+                # File wasn't found in the list, skip context
                 pass
 
         print(f"\n{'=' * 80}")
@@ -547,7 +604,9 @@ def main():
                 args.model,
                 prev_file,
                 next_file,
-                args.context_lines
+                args.context_lines,
+                args.line_width,
+                not args.no_wrap
             )
             processed += 1
         except Exception as e:
