@@ -1,0 +1,8 @@
+# Dictionary format: term: translation 1, translation 2, ...
+# Lines starting with # are comments and will be ignored
+# Empty lines are also ignored
+
+poder: power, authority
+estado: state, nation
+gobierno: government, administration
+democracia: democracy

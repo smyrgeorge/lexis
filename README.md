@@ -113,7 +113,7 @@ python scripts/translate_md.py ./markdown-dir -s Spanish -t English -c 10
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
 
 # With custom dictionary (for specialized terminology)
-python scripts/translate_md.py input.md -s es -t en -d dictionary.csv
+python scripts/translate_md.py input.md -s es -t en -d dictionary.txt
 
 # With custom output directory
 python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
@@ -122,16 +122,17 @@ python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
 python scripts/translate_md.py input.md -s Spanish -t English --prompt "Your custom prompt here" -m gpt-4o-mini
 ```
 
-**Dictionary format** (`dictionary.csv`):
+**Dictionary format** (`dictionary.txt`):
 
-Use a CSV file to define how specific terms should be translated. This is useful for technical terms, proper nouns, or
-specialized vocabulary that should be consistently translated in a specific way.
+Use a TXT file to define how specific terms should be translated. This is useful for technical terms, proper nouns, or
+specialized vocabulary that should be consistently translated in a specific way. You can provide multiple translation
+hints per term, separated by commas.
 
-```csv
-source,target
-término técnico,technical term
-nombre propio,Proper Name
-frase especial,special phrase
+```
+# Dictionary format: term: translation 1, translation 2, ...
+término técnico: technical term
+nombre propio: Proper Name
+frase especial: special phrase, unique expression
 ```
 
 ### Quick Workflow Examples
@@ -150,5 +151,3 @@ python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
 python scripts/pdf_to_md.py ./chunks
 python scripts/translate_md.py ./chunks -s Spanish -t English
 ```
-
-See [docs/README.md](docs/README.md) for complete workflows and advanced usage.

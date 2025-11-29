@@ -23,17 +23,15 @@ python scripts/translate_md.py ./markdown-dir -s Spanish -t English -c 10
 # With OpenAI
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
 # With dictionary
-python scripts/translate_md.py input.md -s Spanish -t English -d dictionary.csv
+python scripts/translate_md.py input.md -s Spanish -t English -d dictionary.txt
 # With custom output directory
 python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
 """
 
 import argparse
-import csv
 import os
 import re
 import sys
-import textwrap
 import time
 import warnings
 from pathlib import Path
@@ -42,6 +40,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from utils.term import Colors, Icons
+from utils.text import wrap_markdown_lines
 
 # Suppress Pydantic V1 compatibility warning with Python 3.14+
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality.*", category=UserWarning)
@@ -57,35 +56,46 @@ Rules:
 """
 
 
-def load_csv_dictionary(csv_path: str) -> str:
+def load_txt_dictionary(txt_path: str) -> str:
     """
-    Load a CSV dictionary file and format it as a string.
-    Expected CSV format: source_term,target_term
+    Load a TXT dictionary file and format it as a string.
+    Expected TXT format: term: translation 1, translation 2
 
     Args:
-        csv_path: Path to the CSV dictionary file
+        txt_path: Path to the TXT dictionary file
 
     Returns:
         Formatted string with the dictionary entries
     """
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"Dictionary file not found: {csv_path}")
+    if not os.path.exists(txt_path):
+        raise FileNotFoundError(f"Dictionary file not found: {txt_path}")
 
     dictionary_entries = []
-    with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.reader(f)
-        # Skip header if present
-        header = next(reader, None)
-        if header and header[0].lower() in ['source', 'term', 'original']:
-            pass  # Header detected, already skipped
-        else:
-            # No header, process first row
-            if header:
-                dictionary_entries.append(f"{header[0]} -> {header[1]}")
+    with open(txt_path, 'r', encoding='utf-8') as f:
+        for line_num, line in enumerate(f, 1):
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith('#'):
+                continue
 
-        for row in reader:
-            if len(row) >= 2:
-                dictionary_entries.append(f"{row[0]} -> {row[1]}")
+            # Validate format: term: translation 1, translation 2
+            if ':' not in line:
+                raise ValueError(
+                    f"Invalid format in dictionary file at line {line_num}: '{line}'\n"
+                    f"Expected format: 'term: translation 1, translation 2'"
+                )
+
+            term, translations = line.split(':', 1)
+            term = term.strip()
+            translations = translations.strip()
+
+            if not term or not translations:
+                raise ValueError(
+                    f"Invalid format in dictionary file at line {line_num}: '{line}'\n"
+                    f"Both term and translations must be non-empty"
+                )
+
+            dictionary_entries.append(f"{term} -> {translations}")
 
     if not dictionary_entries:
         return ""
@@ -158,41 +168,6 @@ def translate_with_openai(
     return content
 
 
-def wrap_markdown_lines(content: str, width: int = 120) -> str:
-    """
-    Wrap markdown lines to a specified width while preserving the structure.
-
-    Args:
-        content: The Markdown content
-        width: Maximum line width (default: 120)
-
-    Returns:
-        Wrapped markdown content
-    """
-    lines = content.split('\n')
-    wrapped_lines = []
-
-    for line in lines:
-        # Don't wrap empty lines, headers, code blocks, or lines that are already short
-        if (not line.strip() or
-                line.strip().startswith('#') or
-                line.strip().startswith('```') or
-                line.strip().startswith('|') or  # Tables
-                len(line) <= width):
-            wrapped_lines.append(line)
-        else:
-            # Wrap long lines
-            wrapped = textwrap.fill(
-                line,
-                width=width,
-                break_long_words=False,
-                break_on_hyphens=False
-            )
-            wrapped_lines.append(wrapped)
-
-    return '\n'.join(wrapped_lines)
-
-
 def natural_sort_key(path: Path) -> list:
     """
     Generate a sort key for natural sorting of file names.
@@ -258,7 +233,7 @@ def translate_file(
         source_lang: Source language
         target_lang: Target language
         prompt: Translation prompt
-        dictionary_path: Optional path to CSV dictionary
+        dictionary_path: Optional path to TXT dictionary
         model: Optional model override
         prev_file: Optional path to previous chunk file
         next_file: Optional path to next chunk file
@@ -320,7 +295,7 @@ def translate_file(
     # Load dictionary if provided
     dictionary = ""
     if dictionary_path:
-        dictionary = load_csv_dictionary(dictionary_path)
+        dictionary = load_txt_dictionary(dictionary_path)
 
     # Get API key
     api_key_env = "ANTHROPIC_API_KEY" if provider == "claude" else "OPENAI_API_KEY"
@@ -426,7 +401,7 @@ def main():
 
     parser.add_argument(
         "-d", "--dictionary",
-        help="Path to CSV dictionary file (format: source_term,target_term)"
+        help="Path to TXT dictionary file (format: term: translation 1, translation 2)"
     )
 
     parser.add_argument(

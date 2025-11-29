@@ -4,6 +4,7 @@ PDF Chunking Script
 
 This script splits a PDF file into smaller chunks based on the number of pages per chunk.
 
+Usage:
 python scripts/chunk_pdf.py workspace/book/book.pdf
 """
 
