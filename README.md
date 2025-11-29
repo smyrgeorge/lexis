@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 ### Configure API Keys
 
-Create a `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` like so:
+Create a `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`, `LIBRETRANSLATE_API_KEY` like so:
 
 ```properties
 # API Keys for Translation Services
@@ -47,7 +47,7 @@ Create a `.env` and add your `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` like so
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 # OpenAI API Key (for ChatGPT)
 OPENAI_API_KEY=your_openai_api_key_here
-# LibreTranslate API KEY
+# LibreTranslate API KEY (for LibreTranslate)
 LIBRETRANSLATE_API_KEY=your_libretranslate_api_key_here
 ```
 
