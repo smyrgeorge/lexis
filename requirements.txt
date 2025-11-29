@@ -3,5 +3,6 @@ marker-pdf
 opencv-python
 pypdf
 python-dotenv
+requests
 anthropic
 openai
