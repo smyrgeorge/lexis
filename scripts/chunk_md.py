@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Chunk a markdown file into smaller pieces.
+Chunk a Markdown file into smaller pieces.
 
 Supports chunking by:
 - Heading level (default)
@@ -8,19 +8,19 @@ Supports chunking by:
 - Token count (approximate)
 
 # By heading (default - splits on # and ## headings)
-python chunk_md.py out/my-book.md
+python chunk_md.py out/book.md
 
 # By heading level (e.g., split only on # headings)
-python chunk_md.py out/my-book.md --heading-level 1
+python chunk_md.py out/book.md --heading-level 1
 
 # By character count (5000 chars per chunk, 200 char overlap)
-python chunk_md.py out/my-book.md --mode chars --max-chars 5000
+python chunk_md.py out/book.md --mode chars --max-chars 5000
 
 # By token count (approximate, ~1000 tokens per chunk)
-python chunk_md.py out/my-book.md --mode tokens --max-tokens 1000
+python chunk_md.py out/book.md --mode tokens --max-tokens 1000
 
 # Custom output directory
-python chunk_md.py out/my-book.md -o chunks/
+python chunk_md.py out/book.md -o chunks/
 """
 
 import argparse
@@ -29,10 +29,12 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
+from utils.term import Colors, Icons
+
 
 def chunk_by_heading(content: str, max_level: int = 2) -> List[Tuple[str, str]]:
     """
-    Split markdown by heading level.
+    Split Markdown by heading level.
 
     Args:
         content: Markdown content
@@ -57,13 +59,13 @@ def chunk_by_heading(content: str, max_level: int = 2) -> List[Tuple[str, str]]:
             if current_content:
                 chunks.append((current_title, '\n'.join(current_content).strip()))
 
-            # Start new chunk
+            # Start a new chunk
             current_title = match.group(2).strip()
             current_content = [line]
         else:
             current_content.append(line)
 
-    # Save last chunk
+    # Save the last chunk
     if current_content:
         chunks.append((current_title, '\n'.join(current_content).strip()))
 
@@ -72,7 +74,7 @@ def chunk_by_heading(content: str, max_level: int = 2) -> List[Tuple[str, str]]:
 
 def chunk_by_size(content: str, max_chars: int = 5000, overlap: int = 200) -> List[str]:
     """
-    Split markdown by character count with overlap.
+    Split Markdown by character count with overlap.
 
     Args:
         content: Markdown content
@@ -148,7 +150,7 @@ def save_chunks(chunks: List[Tuple[str, str]] | List[str], output_dir: Path, bas
 
         output_file = output_dir / filename
         output_file.write_text(content, encoding='utf-8')
-        print(f"Created: {output_file}")
+        print(f"{Colors.GREEN}{Icons.SUCCESS} Created:{Colors.RESET} {Colors.CYAN}{output_file}{Colors.RESET}")
 
 
 def main():
@@ -200,35 +202,54 @@ def main():
 
     args = parser.parse_args()
 
-    # Read input file
+    # Read the input file
     if not args.input_file.exists():
-        print(f"Error: File not found: {args.input_file}")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} File not found: {args.input_file}")
         return 1
 
     content = args.input_file.read_text(encoding='utf-8')
 
-    # Determine output directory
+    # Determine the output directory
     if args.output:
         output_dir = args.output
     else:
         output_dir = args.input_file.parent / f"{args.input_file.stem}_chunks"
+
+    print(f"\n{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Icons.FILE} Chunking Markdown File{Colors.RESET}")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"  {Colors.DIM}File:{Colors.RESET} {Colors.CYAN}{args.input_file}{Colors.RESET}")
+    print(f"  {Colors.DIM}Mode:{Colors.RESET} {Colors.MAGENTA}{args.mode}{Colors.RESET}")
 
     chunks = []
 
     # Chunk content
     if args.mode == "heading":
         chunks = chunk_by_heading(content, args.heading_level)
-        print(f"Split into {len(chunks)} chunks by heading level {args.heading_level}")
+        print(f"  {Colors.DIM}Heading level:{Colors.RESET} {Colors.BOLD}{args.heading_level}{Colors.RESET}")
+        print(f"  {Colors.GREEN}{Icons.SUCCESS} Split into:{Colors.RESET} {Colors.BOLD}{len(chunks)}{Colors.RESET} chunks")
     elif args.mode == "chars":
         chunks = chunk_by_size(content, args.max_chars, args.overlap)
-        print(f"Split into {len(chunks)} chunks by character count (~{args.max_chars} chars each)")
+        print(f"  {Colors.DIM}Max chars:{Colors.RESET} {Colors.BOLD}{args.max_chars}{Colors.RESET}")
+        print(f"  {Colors.DIM}Overlap:{Colors.RESET} {Colors.BOLD}{args.overlap}{Colors.RESET}")
+        print(f"  {Colors.GREEN}{Icons.SUCCESS} Split into:{Colors.RESET} {Colors.BOLD}{len(chunks)}{Colors.RESET} chunks")
     elif args.mode == "tokens":
         chunks = chunk_by_tokens(content, args.max_tokens, args.overlap)
-        print(f"Split into {len(chunks)} chunks by token count (~{args.max_tokens} tokens each)")
+        print(f"  {Colors.DIM}Max tokens:{Colors.RESET} {Colors.BOLD}{args.max_tokens}{Colors.RESET}")
+        print(f"  {Colors.DIM}Overlap:{Colors.RESET} {Colors.BOLD}{args.overlap}{Colors.RESET}")
+        print(f"  {Colors.GREEN}{Icons.SUCCESS} Split into:{Colors.RESET} {Colors.BOLD}{len(chunks)}{Colors.RESET} chunks")
+
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}\n")
 
     # Save chunks
     save_chunks(chunks, output_dir, args.input_file.stem)
-    print(f"\nAll chunks saved to: {output_dir}")
+
+    print(f"\n{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Icons.CHART} Summary{Colors.RESET}")
+    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+    print(f"  {Colors.GREEN}{Icons.SUCCESS} Total chunks:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{len(chunks)}{Colors.RESET}")
+    print(f"  {Colors.CYAN}Output directory:{Colors.RESET} {Colors.CYAN}{output_dir}{Colors.RESET}")
+    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
 
     return 0
 

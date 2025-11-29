@@ -41,6 +41,8 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+from utils.term import Colors, Icons
+
 # Suppress Pydantic V1 compatibility warning with Python 3.14+
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality.*", category=UserWarning)
 
@@ -48,9 +50,10 @@ default_openai_model = "gpt-4o"
 default_claude_model = "claude-sonnet-4-5-20250929"
 default_prompt = """
 Translate the following markdown text from {source} to {target}.
-Preserve all markdown formatting, structure, and syntax.
-Only translate the text content, not the markdown syntax itself.
-Only output the translated text, no additional text headings (e.g., "Translation:").
+Rules:
+- Preserve all markdown formatting, structure, and syntax.
+- Only translate the text content, not the markdown syntax itself.
+- Only output the translated text, no additional text headings (e.g., "Translation:").
 """
 
 
@@ -328,9 +331,9 @@ def translate_file(
 
     # Translate
     if context_prefix or context_suffix:
-        print(f"Translating with {provider} (with context from adjacent chunks)...")
+        print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} {Colors.GRAY}(with context from adjacent chunks){Colors.RESET}...")
     else:
-        print(f"Translating with {provider}...")
+        print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET}...")
     start_time = time.time()
 
     if provider == "claude":
@@ -368,7 +371,7 @@ def translate_file(
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(translated)
 
-    print(f"✓ Translation saved to: {output_path} (took {elapsed_time:.2f}s)")
+    print(f"  {Colors.GREEN}{Icons.SUCCESS} Translation saved to:{Colors.RESET} {Colors.CYAN}{output_path}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed_time:.2f}s){Colors.RESET}")
 
 
 def main():
@@ -416,6 +419,12 @@ def main():
     )
 
     parser.add_argument(
+        "--style",
+        default=None,
+        help="Style remarks for the translation (e.g., 'Use formal tone', 'Keep it concise')"
+    )
+
+    parser.add_argument(
         "-d", "--dictionary",
         help="Path to CSV dictionary file (format: source_term,target_term)"
     )
@@ -451,7 +460,7 @@ def main():
 
     # Check if input exists
     if not input_path.exists():
-        print(f"Error: {args.input_file} does not exist")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} {args.input_file} does not exist")
         sys.exit(1)
 
     # Determine if the input is a file or directory
@@ -462,7 +471,7 @@ def main():
         # Directory mode - find all .md files
         all_md_files = sorted(input_path.glob("*.md"), key=natural_sort_key)
         if not all_md_files:
-            print(f"Error: No .md files found in directory {args.input_file}")
+            print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} No .md files found in directory {args.input_file}")
             sys.exit(1)
 
         # Filter out already translated files (those ending with _{target_lang}.md)
@@ -476,19 +485,20 @@ def main():
             # Also skip if the translated version already exists
             translated_file = f.parent / f"{f.stem}_{args.target_lang}.md"
             if translated_file.exists():
-                print(f"⊘ Skipping {f.name} (translation already exists)")
+                print(f"{Colors.YELLOW}{Icons.SKIP} Skipping:{Colors.RESET} {Colors.DIM}{f.name}{Colors.RESET} {Colors.GRAY}(translation already exists){Colors.RESET}")
                 skipped += 1
                 continue
             files_to_process.append(f)
 
         if not files_to_process:
-            print(f"No files to translate. All files are already translated or skipped.")
+            print(f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No files to translate. All files are already translated or skipped.")
             sys.exit(0)
 
         print(
-            f"Found {len(all_md_files)} markdown files ({skipped} already translated, {len(files_to_process)} to process)")
+            f"{Colors.CYAN}{Icons.INFO} Found:{Colors.RESET} {Colors.BOLD}{len(all_md_files)}{Colors.RESET} markdown files "
+            f"({Colors.GRAY}{skipped} already translated{Colors.RESET}, {Colors.GREEN}{len(files_to_process)} to process{Colors.RESET})")
     else:
-        print(f"Error: {args.input_file} is not a file or directory")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} {args.input_file} is not a file or directory")
         sys.exit(1)
 
     # Format prompt with languages
@@ -496,6 +506,17 @@ def main():
         source=args.source_lang,
         target=args.target_lang
     )
+
+    # Append style remarks if provided
+    if args.style:
+        formatted_prompt += f"\nStyle Guidelines:\n{args.style}"
+
+    # Print the prompt for user preview
+    print(f"\n{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Icons.SPARKLES} Translation Prompt Preview{Colors.RESET}")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"{Colors.WHITE}{formatted_prompt}{Colors.RESET}")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}\n")
 
     # Show cost estimation for batch processing
     if len(files_to_process) > 1:
@@ -509,16 +530,17 @@ def main():
 
         est_tokens = total_chars // 4  # Estimate: 1 token ≈ 4 characters
 
-        print(f"\n{'=' * 80}")
-        print(f"📊 Batch Translation Estimate:")
-        print(f"   Files to process: {len(files_to_process)}")
-        print(f"   Total characters: {total_chars:,}")
-        print(f"   Estimated input tokens: ~{est_tokens:,}")
-        print(f"   Provider: {args.provider}")
-        print(f"   Model: {args.model if args.model else (default_claude_model if args.provider == 'claude' else default_openai_model)}")
-        print(f"\n   Note: Actual costs depend on output length and provider pricing.")
-        print(f"   Context from adjacent chunks will add additional tokens.")
-        print(f"{'=' * 80}")
+        print(f"\n{Colors.BLUE}{'─' * 80}{Colors.RESET}")
+        print(f"{Colors.BOLD}{Icons.CHART} Batch Translation Estimate{Colors.RESET}")
+        print(f"{Colors.BLUE}{'─' * 80}{Colors.RESET}")
+        print(f"   {Colors.CYAN}Files to process:{Colors.RESET} {Colors.BOLD}{len(files_to_process)}{Colors.RESET}")
+        print(f"   {Colors.CYAN}Total characters:{Colors.RESET} {Colors.BOLD}{total_chars:,}{Colors.RESET}")
+        print(f"   {Colors.CYAN}Estimated input tokens:{Colors.RESET} {Colors.BOLD}~{est_tokens:,}{Colors.RESET}")
+        print(f"   {Colors.CYAN}Provider:{Colors.RESET} {Colors.MAGENTA}{args.provider}{Colors.RESET}")
+        print(f"   {Colors.CYAN}Model:{Colors.RESET} {Colors.MAGENTA}{args.model if args.model else (default_claude_model if args.provider == 'claude' else default_openai_model)}{Colors.RESET}")
+        print(f"\n   {Colors.GRAY}{Icons.INFO} Note: Actual costs depend on output length and provider pricing.{Colors.RESET}")
+        print(f"   {Colors.GRAY}{Icons.INFO} Context from adjacent chunks will add additional tokens.{Colors.RESET}")
+        print(f"{Colors.BLUE}{'─' * 80}{Colors.RESET}")
 
     # Process files
     processed = 0
@@ -534,15 +556,16 @@ def main():
         with open(file_path, 'r', encoding='utf-8') as f:
             current_content = f.read()
             current_lines = current_content.split('\n')
-            current_first_line = current_lines[0] if current_lines else ""
+            # Get first 5 lines for preview
+            current_first_lines = current_lines[:5] if len(current_lines) >= 5 else current_lines
             current_char_count = len(current_content)
 
         # Determine previous and next files for context
         # Look at ALL files in the directory, not just files_to_process
         prev_file = None
         next_file = None
-        prev_first_line = None
-        next_first_line = None
+        prev_last_lines = []
+        next_first_lines = []
 
         if args.context_lines > 0 and input_path.is_dir():
             # Get all .md files (including already translated ones) sorted
@@ -560,9 +583,9 @@ def main():
                     prev_file = str(all_source_files[current_idx - 1])
                     try:
                         with open(prev_file, 'r', encoding='utf-8') as f:
-                            # Get the LAST non-empty line from the previous chunk
-                            lines = [line.strip() for line in f.readlines() if line.strip()]
-                            prev_first_line = lines[-1] if lines else ""
+                            # Get the LAST 5 non-empty lines from the previous chunk
+                            all_lines = [line.strip() for line in f.readlines() if line.strip()]
+                            prev_last_lines = all_lines[-5:] if len(all_lines) >= 5 else all_lines
                     except Exception:
                         pass
 
@@ -571,26 +594,38 @@ def main():
                     next_file = str(all_source_files[current_idx + 1])
                     try:
                         with open(next_file, 'r', encoding='utf-8') as f:
-                            next_first_line = f.readline().strip()
+                            # Get the FIRST 5 lines from the next chunk
+                            all_lines = f.readlines()
+                            next_first_lines = [line.strip() for line in all_lines[:5]]
                     except Exception:
                         pass
             except ValueError:
                 # File wasn't found in the list, skip context
                 pass
 
-        print(f"\n{'=' * 80}")
-        print(f"[{idx + 1}/{len(files_to_process)}] Processing: {file_path.name}")
-        print(f"  Characters: {current_char_count:,}")
-        print(f"  First line: {current_first_line[:75]}{'...' if len(current_first_line) > 75 else ''}")
+        print(f"\n{Colors.GREEN}{'─' * 80}{Colors.RESET}")
+        print(f"{Colors.BOLD}{Icons.FILE} [{idx + 1}/{len(files_to_process)}] Processing:{Colors.RESET} {Colors.CYAN}{file_path.name}{Colors.RESET}")
+        print(f"{Colors.GREEN}{'─' * 80}{Colors.RESET}")
+        print(f"  {Colors.DIM}Characters:{Colors.RESET} {Colors.BOLD}{current_char_count:,}{Colors.RESET}")
+        print(f"  {Colors.DIM}First lines:{Colors.RESET}")
+        for i, line in enumerate(current_first_lines, 1):
+            truncated_line = line[:75] + '...' if len(line) > 75 else line
+            print(f"    {Colors.GRAY}{i}.{Colors.RESET} {truncated_line}")
         if prev_file and args.context_lines > 0:
-            print(f"\n  📄 Previous chunk: {Path(prev_file).name}")
-            if prev_first_line:
-                print(f"     Last line: {prev_first_line[:75]}{'...' if len(prev_first_line) > 75 else ''}")
+            print(f"\n  {Colors.BLUE}{Icons.FILE} Previous chunk:{Colors.RESET} {Colors.DIM}{Path(prev_file).name}{Colors.RESET}")
+            if prev_last_lines:
+                print(f"     {Colors.DIM}Last lines:{Colors.RESET}")
+                for i, line in enumerate(prev_last_lines, 1):
+                    truncated_line = line[:75] + '...' if len(line) > 75 else line
+                    print(f"       {Colors.GRAY}{i}.{Colors.RESET} {Colors.DIM}{truncated_line}{Colors.RESET}")
         if next_file and args.context_lines > 0:
-            print(f"\n  📄 Next chunk: {Path(next_file).name}")
-            if next_first_line:
-                print(f"     First line: {next_first_line[:75]}{'...' if len(next_first_line) > 75 else ''}")
-        print(f"{'=' * 80}")
+            print(f"\n  {Colors.BLUE}{Icons.FILE} Next chunk:{Colors.RESET} {Colors.DIM}{Path(next_file).name}{Colors.RESET}")
+            if next_first_lines:
+                print(f"     {Colors.DIM}First lines:{Colors.RESET}")
+                for i, line in enumerate(next_first_lines, 1):
+                    truncated_line = line[:75] + '...' if len(line) > 75 else line
+                    print(f"       {Colors.GRAY}{i}.{Colors.RESET} {Colors.DIM}{truncated_line}{Colors.RESET}")
+        print(f"{Colors.GREEN}{'─' * 80}{Colors.RESET}")
 
         try:
             translate_file(
@@ -610,17 +645,19 @@ def main():
             )
             processed += 1
         except Exception as e:
-            print(f"✗ Error processing {file_path.name}: {e}")
+            print(f"  {Colors.RED}{Icons.ERROR} Error processing {Colors.CYAN}{file_path.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
             failed += 1
 
     # Summary
     if len(files_to_process) > 1:
-        print(f"\n{'=' * 80}")
-        print(f"Summary:")
-        print(f"  Total files: {len(files_to_process)}")
-        print(f"  Successfully translated: {processed}")
-        print(f"  Failed: {failed}")
-        print(f"{'=' * 80}")
+        print(f"\n{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+        print(f"{Colors.BOLD}{Icons.CHART} Summary{Colors.RESET}")
+        print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+        print(f"  {Colors.CYAN}Total files:{Colors.RESET} {Colors.BOLD}{len(files_to_process)}{Colors.RESET}")
+        print(f"  {Colors.GREEN}{Icons.SUCCESS} Successfully translated:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{processed}{Colors.RESET}")
+        if failed > 0:
+            print(f"  {Colors.RED}{Icons.ERROR} Failed:{Colors.RESET} {Colors.BOLD}{Colors.RED}{failed}{Colors.RESET}")
+        print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
 
     if failed > 0:
         sys.exit(1)

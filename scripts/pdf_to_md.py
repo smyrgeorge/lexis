@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from utils.term import Colors, Icons
+
 # Docling imports
 try:
     from docling.datamodel.base_models import InputFormat
@@ -57,7 +59,7 @@ def natural_sort_key(path: Path) -> list:
     This ensures that file10.pdf comes after file2.pdf, not before.
 
     Args:
-        path: Path object to generate sort key for
+        path: Path object to generate a sort key for
 
     Returns:
         List of strings and integers for natural sorting
@@ -68,10 +70,10 @@ def natural_sort_key(path: Path) -> list:
 
 def wrap_markdown_lines(content: str, width: int = 120) -> str:
     """
-    Wrap markdown lines to a specified width while preserving structure.
+    Wrap markdown lines to a specified width while preserving the structure.
 
     Args:
-        content: The markdown content
+        content: The Markdown content
         width: Maximum line width (default: 120)
 
     Returns:
@@ -118,7 +120,7 @@ def process_pdfs_with_docling(
         Tuple of (processed_count, failed_count)
     """
     if not DOCLING_AVAILABLE:
-        print("Error: docling is not installed. Install it with: pip install docling")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} docling is not installed. Install it with: pip install docling")
         return 0, len(pdf_files)
 
     # Filter out PDFs that already have .md files
@@ -127,44 +129,44 @@ def process_pdfs_with_docling(
     for pdf_file in pdf_files:
         md_file = pdf_file.with_suffix('.md')
         if md_file.exists():
-            print(f"⊘ Skipping {pdf_file.name} (markdown file already exists)")
+            print(f"{Colors.YELLOW}{Icons.SKIP} Skipping:{Colors.RESET} {Colors.DIM}{pdf_file.name}{Colors.RESET} {Colors.GRAY}(markdown file already exists){Colors.RESET}")
             skipped += 1
         else:
             files_to_process.append(pdf_file)
 
     if not files_to_process:
-        print("No files to convert. All PDFs already have markdown files.")
+        print(f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No files to convert. All PDFs already have markdown files.")
         return len(pdf_files) - skipped, 0
 
     if skipped > 0:
-        print(f"\nFound {len(pdf_files)} PDF files ({skipped} already converted, {len(files_to_process)} to process)\n")
+        print(f"\n{Colors.CYAN}{Icons.INFO} Found:{Colors.RESET} {Colors.BOLD}{len(pdf_files)}{Colors.RESET} PDF files ({Colors.GRAY}{skipped} already converted{Colors.RESET}, {Colors.GREEN}{len(files_to_process)} to process{Colors.RESET})\n")
 
     # Setup pipeline options
     pipeline_options = PdfPipelineOptions()
     pipeline_options.do_table_structure = False  # Equivalent to --no-tables
 
-    # Create converter with options (models loaded once here)
-    print("🔧 Initializing docling converter (loading models)...")
+    # Create a converter with options (models loaded once here)
+    print(f"{Colors.CYAN}{Icons.SPARKLES} Initializing docling converter {Colors.GRAY}(loading models){Colors.RESET}...")
     converter = DocumentConverter(
         format_options={
             InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
         }
     )
-    print("✓ Converter initialized\n")
+    print(f"{Colors.GREEN}{Icons.SUCCESS} Converter initialized{Colors.RESET}\n")
 
     processed = 0
     failed = 0
 
     for idx, pdf_file in enumerate(files_to_process):
         file_size_mb = pdf_file.stat().st_size / (1024 * 1024)
-        print(f"📄 [{idx + 1}/{len(files_to_process)}] Processing: {pdf_file.name} ({file_size_mb:.2f} MB)")
+        print(f"{Colors.BOLD}{Icons.FILE} [{idx + 1}/{len(files_to_process)}] Processing:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Colors.GRAY}({file_size_mb:.2f} MB){Colors.RESET}")
 
         try:
             # Convert the PDF
             start_time = time.time()
             result = converter.convert(str(pdf_file))
 
-            # Export to markdown
+            # Export to Markdown
             markdown_content = result.document.export_to_markdown()
 
             # Wrap lines if enabled
@@ -177,11 +179,11 @@ def process_pdfs_with_docling(
                 f.write(markdown_content)
 
             elapsed = time.time() - start_time
-            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name} ({elapsed:.2f}s)")
+            print(f"{Colors.GREEN}{Icons.SUCCESS} Successfully converted:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Icons.ARROW} {Colors.CYAN}{output_file.name}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed:.2f}s){Colors.RESET}")
             processed += 1
 
         except Exception as e:
-            print(f"✗ Failed to process {pdf_file.name}: {e}")
+            print(f"{Colors.RED}{Icons.ERROR} Failed to process {Colors.CYAN}{pdf_file.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
             failed += 1
 
         print()
@@ -206,7 +208,7 @@ def process_pdfs_with_marker(
         Tuple of (processed_count, failed_count)
     """
     if not MARKER_AVAILABLE:
-        print("Error: marker is not installed. Install it with: pip install marker-pdf")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} marker is not installed. Install it with: pip install marker-pdf")
         return 0, len(pdf_files)
 
     # Filter out PDFs that already have .md files
@@ -215,20 +217,20 @@ def process_pdfs_with_marker(
     for pdf_file in pdf_files:
         md_file = pdf_file.with_suffix('.md')
         if md_file.exists():
-            print(f"⊘ Skipping {pdf_file.name} (markdown file already exists)")
+            print(f"{Colors.YELLOW}{Icons.SKIP} Skipping:{Colors.RESET} {Colors.DIM}{pdf_file.name}{Colors.RESET} {Colors.GRAY}(markdown file already exists){Colors.RESET}")
             skipped += 1
         else:
             files_to_process.append(pdf_file)
 
     if not files_to_process:
-        print("No files to convert. All PDFs already have markdown files.")
+        print(f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No files to convert. All PDFs already have markdown files.")
         return len(pdf_files) - skipped, 0
 
     if skipped > 0:
-        print(f"\nFound {len(pdf_files)} PDF files ({skipped} already converted, {len(files_to_process)} to process)\n")
+        print(f"\n{Colors.CYAN}{Icons.INFO} Found:{Colors.RESET} {Colors.BOLD}{len(pdf_files)}{Colors.RESET} PDF files ({Colors.GRAY}{skipped} already converted{Colors.RESET}, {Colors.GREEN}{len(files_to_process)} to process{Colors.RESET})\n")
 
     # Initialize marker converter (models loaded once here)
-    print("🔧 Initializing marker converter (loading models)...")
+    print(f"{Colors.CYAN}{Icons.SPARKLES} Initializing marker converter {Colors.GRAY}(loading models){Colors.RESET}...")
     try:
         config = {
             # "disable_image_extraction": "true",
@@ -237,9 +239,9 @@ def process_pdfs_with_marker(
             artifact_dict=create_model_dict(),
             config=ConfigParser(config).generate_config_dict()
         )
-        print("✓ Converter initialized\n")
+        print(f"{Colors.GREEN}{Icons.SUCCESS} Converter initialized{Colors.RESET}\n")
     except Exception as e:
-        print(f"Error initializing marker converter: {e}")
+        print(f"{Colors.RED}{Icons.ERROR} Error initializing marker converter: {Colors.RED}{e}{Colors.RESET}")
         return 0, len(pdf_files)
 
     processed = 0
@@ -247,14 +249,14 @@ def process_pdfs_with_marker(
 
     for idx, pdf_file in enumerate(files_to_process):
         file_size_mb = pdf_file.stat().st_size / (1024 * 1024)
-        print(f"📄 [{idx + 1}/{len(files_to_process)}] Processing: {pdf_file.name} ({file_size_mb:.2f} MB)")
+        print(f"{Colors.BOLD}{Icons.FILE} [{idx + 1}/{len(files_to_process)}] Processing:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Colors.GRAY}({file_size_mb:.2f} MB){Colors.RESET}")
 
         try:
             # Convert the PDF
             start_time = time.time()
             rendered = converter(str(pdf_file))
 
-            # Extract markdown text
+            # Extract Markdown text
             markdown_content, _, _ = text_from_rendered(rendered)
 
             # Wrap lines if enabled
@@ -267,11 +269,11 @@ def process_pdfs_with_marker(
                 f.write(markdown_content)
 
             elapsed = time.time() - start_time
-            print(f"✓ Successfully converted: {pdf_file.name} -> {output_file.name} ({elapsed:.2f}s)")
+            print(f"{Colors.GREEN}{Icons.SUCCESS} Successfully converted:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Icons.ARROW} {Colors.CYAN}{output_file.name}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed:.2f}s){Colors.RESET}")
             processed += 1
 
         except Exception as e:
-            print(f"✗ Failed to process {pdf_file.name}: {e}")
+            print(f"{Colors.RED}{Icons.ERROR} Failed to process {Colors.CYAN}{pdf_file.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
             failed += 1
 
         print()
@@ -297,26 +299,26 @@ def process_pdfs(
     Returns:
         Tuple of (processed_count, failed_count)
     """
-    # Determine if input is a file or directory
+    # Determine if the input is a file or directory
     path = Path(input_path)
 
     if path.is_file():
         # Single file mode
         if path.suffix.lower() != '.pdf':
-            print(f"Error: {input_path} is not a PDF file")
+            print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} {input_path} is not a PDF file")
             return 0, 1
         pdf_files = [path]
     elif path.is_dir():
         # Directory mode - find all PDF files
         pdf_files = sorted(path.glob("*.pdf"), key=natural_sort_key)
         if not pdf_files:
-            print(f"No PDF files found in {input_path}")
+            print(f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No PDF files found in {input_path}")
             return 0, 0
     else:
-        print(f"Error: {input_path} is not a valid file or directory")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} {input_path} is not a valid file or directory")
         return 0, 1
 
-    print(f"Found {len(pdf_files)} PDF file(s) to process\n")
+    print(f"{Colors.CYAN}{Icons.INFO} Found:{Colors.RESET} {Colors.BOLD}{len(pdf_files)}{Colors.RESET} PDF file(s) to process\n")
 
     # Process using the selected engine
     if engine == "docling":
@@ -324,7 +326,7 @@ def process_pdfs(
     elif engine == "marker":
         return process_pdfs_with_marker(pdf_files, line_width, wrap_lines)
     else:
-        print(f"Error: Unknown engine '{engine}'. Supported engines: docling, marker")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} Unknown engine '{engine}'. Supported engines: docling, marker")
         return 0, len(pdf_files)
 
 
@@ -363,35 +365,34 @@ def main():
 
     # Validate input path exists
     if not os.path.exists(args.input):
-        print(f"Error: '{args.input}' does not exist")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} '{args.input}' does not exist")
         sys.exit(1)
 
-    # Check if selected engine is available
+    # Check if the selected engine is available
     if args.engine == "docling" and not DOCLING_AVAILABLE:
-        print("Error: docling is not installed. Install it with: pip install docling")
-        print("Or use a different engine with --engine marker")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} docling is not installed. Install it with: pip install docling")
+        print(f"{Colors.GRAY}Or use a different engine with --engine marker{Colors.RESET}")
         sys.exit(1)
     elif args.engine == "marker" and not MARKER_AVAILABLE:
-        print("Error: marker is not installed. Install it with: pip install marker-pdf")
-        print("Or use a different engine with --engine docling")
+        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} marker is not installed. Install it with: pip install marker-pdf")
+        print(f"{Colors.GRAY}Or use a different engine with --engine docling{Colors.RESET}")
         sys.exit(1)
 
-    # Determine input type for display
+    # Determine the input type for display
     input_path = Path(args.input)
     input_type = "file" if input_path.is_file() else "directory"
 
-    print("=" * 80)
-    print("PDF to Markdown Converter")
-    print("=" * 80)
-    print(f"Input {input_type}: {args.input}")
-    print(f"Engine: {args.engine}")
-    print(f"Output: Markdown files will be placed in the same directory as PDFs")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Icons.SPARKLES} PDF to Markdown Converter{Colors.RESET}")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
+    print(f"  {Colors.DIM}Input {input_type}:{Colors.RESET} {Colors.CYAN}{args.input}{Colors.RESET}")
+    print(f"  {Colors.DIM}Engine:{Colors.RESET} {Colors.MAGENTA}{args.engine}{Colors.RESET}")
+    print(f"  {Colors.DIM}Output:{Colors.RESET} Markdown files will be placed in the same directory as PDFs")
     if args.no_wrap:
-        print(f"Line wrapping: Disabled")
+        print(f"  {Colors.DIM}Line wrapping:{Colors.RESET} {Colors.YELLOW}Disabled{Colors.RESET}")
     else:
-        print(f"Line wrapping: {args.line_width} characters")
-    print("=" * 80)
-    print()
+        print(f"  {Colors.DIM}Line wrapping:{Colors.RESET} {Colors.GREEN}{args.line_width} characters{Colors.RESET}")
+    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}\n")
 
     batch_start_time = time.time()
     processed, failed = process_pdfs(
@@ -403,13 +404,14 @@ def main():
     total_time = time.time() - batch_start_time
 
     # Summary
-    print("=" * 80)
-    print("Summary:")
-    print(f"  Total processed: {processed}")
+    print(f"\n{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Icons.CHART} Summary{Colors.RESET}")
+    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+    print(f"  {Colors.CYAN}Total processed:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{processed}{Colors.RESET}")
     if failed > 0:
-        print(f"  Total failed: {failed}")
-    print(f"  Total time: {total_time:.2f}s")
-    print("=" * 80)
+        print(f"  {Colors.RED}{Icons.ERROR} Total failed:{Colors.RESET} {Colors.BOLD}{Colors.RED}{failed}{Colors.RESET}")
+    print(f"  {Colors.CYAN}Total time:{Colors.RESET} {Colors.BOLD}{total_time:.2f}s{Colors.RESET}")
+    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
 
     if failed > 0:
         sys.exit(1)
