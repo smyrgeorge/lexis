@@ -2,17 +2,18 @@
 """
 Markdown Translation Script
 
-Translates markdown files using LLMs (Claude or ChatGPT).
+Translates markdown files using LLMs (Claude or ChatGPT) or LibreTranslate.
 Translated files are placed in the same directory as the source file by default.
 Supports both single files and batch processing of directories.
 
 Features:
-- Automatically includes context from previous/next chunks to improve translation quality
+- Automatically includes context from previous/next chunks to improve translation quality (LLM providers only)
 - Skips already translated files when processing directories
-- Supports custom dictionaries for specialized terminology
+- Supports custom dictionaries for specialized terminology (LLM providers only)
+- LibreTranslate support for free, open-source translation
 
 Usage:
-# Translate a single file with Claude
+# Translate a single file with Claude (default)
 python scripts/translate_md.py input.md -s Spanish -t English
 # Translate all .md files in a directory (with context from adjacent chunks)
 python scripts/translate_md.py ./markdown-dir -s Spanish -t English
@@ -22,7 +23,11 @@ python scripts/translate_md.py ./markdown-dir -s Spanish -t English -c 0
 python scripts/translate_md.py ./markdown-dir -s Spanish -t English -c 10
 # With OpenAI
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
-# With dictionary
+# With LibreTranslate (free, open-source)
+python scripts/translate_md.py input.md -p libretranslate -s es -t en
+# With LibreTranslate and custom server
+python scripts/translate_md.py input.md -p libretranslate -s es -t en --libretranslate-url http://localhost:5000
+# With dictionary (LLM providers only)
 python scripts/translate_md.py input.md -s Spanish -t English -d dictionary.txt
 # With custom output directory
 python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
@@ -45,8 +50,9 @@ from utils.text import wrap_markdown_lines
 # Suppress Pydantic V1 compatibility warning with Python 3.14+
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality.*", category=UserWarning)
 
-default_openai_model = "gpt-4o"
+default_openai_model = "gpt-5"
 default_claude_model = "claude-sonnet-4-5-20250929"
+default_libretranslate_url = "https://libretranslate.com"
 default_prompt = """
 Translate the following markdown text from {source} to {target}.
 Rules:
@@ -168,6 +174,58 @@ def translate_with_openai(
     return content
 
 
+def translate_with_libretranslate(
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        api_url: str = default_libretranslate_url,
+        api_key: Optional[str] = None
+) -> str:
+    """
+    Translate text using LibreTranslate API.
+
+    Note: LibreTranslate is a direct translation service that doesn't support prompts or dictionaries.
+    For advanced features like custom dictionaries, use Claude or OpenAI providers instead.
+
+    Args:
+        text: Text to translate
+        source_lang: Source language code (e.g., 'en', 'es')
+        target_lang: Target language code (e.g., 'en', 'es')
+        api_url: LibreTranslate API URL
+        api_key: Optional API key for LibreTranslate
+
+    Returns:
+        Translated text
+    """
+    import requests
+
+    payload = {
+        "q": text,
+        "source": source_lang,
+        "target": target_lang,
+        "format": "text"
+    }
+
+    if api_key:
+        payload["api_key"] = api_key
+
+    try:
+        response = requests.post(f"{api_url}/translate", json=payload, timeout=60)
+        response.raise_for_status()
+
+        result = response.json()
+        if "translatedText" not in result:
+            raise ValueError("API response missing 'translatedText' field")
+
+        translated = result["translatedText"]
+        if not translated or not translated.strip():
+            raise ValueError("API returned empty translation")
+
+        return translated
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"LibreTranslate API request failed: {e}")
+
+
 def natural_sort_key(path: Path) -> list:
     """
     Generate a sort key for natural sorting of file names.
@@ -221,7 +279,8 @@ def translate_file(
         next_file: Optional[str] = None,
         context_lines: int = 5,
         line_width: Optional[int] = 120,
-        wrap_lines: bool = True
+        wrap_lines: bool = True,
+        libretranslate_url: str = default_libretranslate_url
 ) -> None:
     """
     Translate a Markdown file.
@@ -229,7 +288,7 @@ def translate_file(
     Args:
         input_file: Path to input markdown file
         output_dir: Directory for output file
-        provider: LLM provider ('claude' or 'openai')
+        provider: Translation provider ('claude', 'openai', or 'libretranslate')
         source_lang: Source language
         target_lang: Target language
         prompt: Translation prompt
@@ -240,6 +299,7 @@ def translate_file(
         context_lines: Number of lines to include from prev/next chunks for context
         line_width: Maximum line width for wrapping (default: 120)
         wrap_lines: Whether to wrap lines (default: True)
+        libretranslate_url: LibreTranslate API URL (only used when provider is 'libretranslate')
     """
     # Read the input file
     with open(input_file, 'r', encoding='utf-8') as f:
@@ -292,19 +352,33 @@ def translate_file(
     else:
         content_with_context = content
 
-    # Load dictionary if provided
+    # Load dictionary if provided (not used for LibreTranslate)
     dictionary = ""
-    if dictionary_path:
+    if dictionary_path and provider != "libretranslate":
         dictionary = load_txt_dictionary(dictionary_path)
+    elif dictionary_path and provider == "libretranslate":
+        print(f"  {Colors.YELLOW}⚠️  Warning:{Colors.RESET} Dictionary is not supported with LibreTranslate provider")
 
-    # Get API key
-    api_key_env = "ANTHROPIC_API_KEY" if provider == "claude" else "OPENAI_API_KEY"
-    api_key = os.getenv(api_key_env)
+    # Get API key (optional for LibreTranslate)
+    api_key = None
+    if provider in ["claude", "openai", "libretranslate"]:
+        if provider == "claude":
+            api_key_env = "ANTHROPIC_API_KEY"
+        elif provider == "openai":
+            api_key_env = "OPENAI_API_KEY"
+        else:  # libretranslate
+            api_key_env = "LIBRETRANSLATE_API_KEY"
 
-    if not api_key:
-        raise ValueError(f"{api_key_env} not found in environment variables")
+        api_key = os.getenv(api_key_env)
+
+        # Require API key for Claude and OpenAI; LibreTranslate key is optional
+        if provider in ["claude", "openai"] and not api_key:
+            raise ValueError(f"{api_key_env} not found in environment variables")
 
     # Translate
+    if provider == "libretranslate" and (context_prefix or context_suffix):
+        print(f"  {Colors.YELLOW}⚠️  Warning:{Colors.RESET} Context from adjacent chunks is not supported with LibreTranslate. Using direct translation.")
+
     if context_prefix or context_suffix:
         print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} {Colors.GRAY}(with context from adjacent chunks){Colors.RESET}...")
     else:
@@ -319,13 +393,22 @@ def translate_file(
             api_key,
             model if model else default_claude_model
         )
-    else:  # openai
+    elif provider == "openai":
         translated = translate_with_openai(
             content_with_context,
             prompt,
             dictionary,
             api_key,
             model if model else default_openai_model
+        )
+    else:  # libretranslate
+        # LibreTranslate doesn't support context or dictionaries, use raw content
+        translated = translate_with_libretranslate(
+            content,  # Use raw content, not content_with_context
+            source_lang,
+            target_lang,
+            libretranslate_url,
+            api_key
         )
 
     elapsed_time = time.time() - start_time
@@ -370,15 +453,15 @@ def main():
 
     parser.add_argument(
         "-p", "--provider",
-        choices=["claude", "openai"],
+        choices=["claude", "openai", "libretranslate"],
         default="claude",
-        help="LLM provider to use"
+        help="Translation provider to use"
     )
 
     parser.add_argument(
         "-s", "--source-lang",
         required=True,
-        help="Source language (e.g., 'Spanish', 'es')"
+        help="Source language (e.g., 'Spanish', 'es' for Claude/OpenAI, 'es' for LibreTranslate)"
     )
 
     parser.add_argument(
@@ -427,6 +510,12 @@ def main():
         "--no-wrap",
         action="store_true",
         help="Disable line wrapping"
+    )
+
+    parser.add_argument(
+        "--libretranslate-url",
+        default=default_libretranslate_url,
+        help="LibreTranslate API URL (only used when provider is 'libretranslate')"
     )
 
     args = parser.parse_args()
@@ -616,7 +705,8 @@ def main():
                 next_file,
                 args.context_lines,
                 args.line_width,
-                not args.no_wrap
+                not args.no_wrap,
+                args.libretranslate_url
             )
             processed += 1
         except Exception as e:
