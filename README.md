@@ -15,9 +15,10 @@ context-aware translations that maintain consistency across chunk boundaries. Wh
 article or a multi-hundred-page book, Lexis provides the tools to automate and optimize the translation workflow while
 preserving formatting and ensuring high-quality results.
 
-This project does not attempt to replace the complete process of translating a book or large document. Instead, it aims
-to minimize the effort required to generate a high-quality first draft translation, allowing translators to focus their
-time and expertise on refining the translation rather than performing the initial, time-consuming conversion work.
+> [!NOTE]
+> This project does not attempt to replace the complete process of translating a book or large document. Instead, it aims
+> to minimize the effort required to generate a high-quality first draft translation, allowing translators to focus their
+> time and expertise on refining the translation rather than performing the initial, time-consuming conversion work.
 
 ## Setup
 
