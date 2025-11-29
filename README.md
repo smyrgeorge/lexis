@@ -49,20 +49,25 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 To translate a large PDF document, you'll typically follow a three-step process:
 
-1. **[Split the PDF](#1-split-a-pdf-file-into-chunks)** (optional, for large files) - Break large PDFs into smaller
+1. **[Split the PDF](#1-split-a-pdf-file-into-chunks)** (optional, for large files)—Break large PDFs into smaller
    chunks
-2. **[Convert to Markdown](#2-convert-pdfs-to-markdown)** - Transform PDF files into editable Markdown format
-3. **[Translate](#3-translate-markdown-files)** - Use LLMs to translate the Markdown files to your target language
+2. **[Convert to Markdown](#2-convert-pdfs-to-markdown)**—Transform PDF files into editable Markdown format
+3. **[Translate](#3-translate-markdown-files)**—Use LLMs to translate the Markdown files to your target language
 
 Each step is detailed below.
 
 #### 1. Split a PDF File into Chunks
+
+For large documents, splitting into smaller chunks is recommended because the conversion and translation tools work
+better with smaller document sizes (1–5 pages). This ensures higher quality output and more reliable processing.
 
 Split a large PDF into smaller chunks:
 
 ```bash
 python scripts/chunk_pdf.py input.pdf -p 10 -o output_directory
 ```
+
+The `-p` parameter specifies how many pages per chunk (e.g., `-p 10` creates chunks of 10 pages each).
 
 #### 2. Convert PDFs to Markdown
 
@@ -91,7 +96,8 @@ Translated files are placed in the same directory as the source file by default.
 - **Context-aware translation**: Automatically includes lines from previous/next chunks to improve translation quality
   across chunk boundaries
 - **Smart filtering**: Skips already translated files when processing directories
-- **Custom dictionaries**: Support for specialized terminology
+- **Custom dictionaries**: Add custom words or phrases that should be translated in a specific way. The dictionary is
+  appended to the translator's context to ensure consistent terminology throughout your document
 
 ```bash
 # Translate a single file with Claude (default)
@@ -106,7 +112,7 @@ python scripts/translate_md.py ./markdown-dir -s Spanish -t English -c 10
 # Using OpenAI
 python scripts/translate_md.py input.md -p openai -s Spanish -t English
 
-# With custom dictionary
+# With custom dictionary (for specialized terminology)
 python scripts/translate_md.py input.md -s es -t en -d dictionary.csv
 
 # With custom output directory
@@ -118,22 +124,26 @@ python scripts/translate_md.py input.md -s Spanish -t English --prompt "Your cus
 
 **Dictionary format** (`dictionary.csv`):
 
+Use a CSV file to define how specific terms should be translated. This is useful for technical terms, proper nouns, or
+specialized vocabulary that should be consistently translated in a specific way.
+
 ```csv
 source,target
-término1,term1
-término2,term2
+término técnico,technical term
+nombre propio,Proper Name
+frase especial,special phrase
 ```
 
 ### Quick Workflow Examples
 
-**Manual Steps - Small PDF Translation:**
+**Manual Steps—Small PDF Translation:**
 
 ```bash
 python scripts/pdf_to_md.py ./document.pdf
 python scripts/translate_md.py ./document.md -s Spanish -t English
 ```
 
-**Manual Steps - Large PDF Translation:**
+**Manual Steps—Large PDF Translation:**
 
 ```bash
 python scripts/chunk_pdf.py large-book.pdf -p 10 -o ./chunks
