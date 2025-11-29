@@ -371,7 +371,7 @@ def translate_file(
 
         api_key = os.getenv(api_key_env)
 
-        # Require API key for Claude and OpenAI; LibreTranslate key is optional
+        # Require an API key for Claude and OpenAI; LibreTranslate key is optional
         if provider in ["claude", "openai"] and not api_key:
             raise ValueError(f"{api_key_env} not found in environment variables")
 
