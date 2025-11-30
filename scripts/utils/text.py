@@ -18,23 +18,47 @@ def wrap_markdown_lines(content: str, width: int = 120) -> str:
     """
     lines = content.split('\n')
     wrapped_lines = []
+    i = 0
 
-    for line in lines:
-        # Don't wrap empty lines, headers, code blocks, or lines that are already short
+    while i < len(lines):
+        line = lines[i]
+
+        # Don't wrap empty lines, headers, code blocks, or tables
         if (not line.strip() or
                 line.strip().startswith('#') or
                 line.strip().startswith('```') or
-                line.strip().startswith('|') or  # Tables
-                len(line) <= width):
+                line.strip().startswith('|')):
             wrapped_lines.append(line)
-        else:
-            # Wrap long lines
-            wrapped = textwrap.fill(
-                line,
-                width=width,
-                break_long_words=False,
-                break_on_hyphens=False
-            )
-            wrapped_lines.append(wrapped)
+            i += 1
+            continue
+
+        # For regular text, collect consecutive non-empty lines into a paragraph
+        paragraph_lines = [line]
+        j = i + 1
+
+        # Collect lines until we hit an empty line or special formatting
+        while j < len(lines):
+            next_line = lines[j]
+            # Stop if we hit an empty line, header, code block, or table
+            if (not next_line.strip() or
+                    next_line.strip().startswith('#') or
+                    next_line.strip().startswith('```') or
+                    next_line.strip().startswith('|')):
+                break
+            paragraph_lines.append(next_line)
+            j += 1
+
+        # Join the paragraph lines and wrap them together
+        paragraph_text = ' '.join(line.strip() for line in paragraph_lines)
+        wrapped = textwrap.fill(
+            paragraph_text,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False
+        )
+        wrapped_lines.append(wrapped)
+
+        # Move to the next unprocessed line
+        i = j
 
     return '\n'.join(wrapped_lines)
