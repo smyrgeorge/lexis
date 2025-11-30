@@ -142,8 +142,6 @@ def process_pdfs_with_marker(
             print(f"{Colors.RED}{Icons.ERROR} Failed to process {Colors.CYAN}{pdf_file.name}{Colors.RESET}: {Colors.RED}{e1}{Colors.RESET}")
             failed += 1
 
-        print()
-
     return processed, failed
 
 
@@ -271,7 +269,6 @@ def main():
         expand=True,
         padding=(1, 2)
     )
-    console.print(f"\n")
     console.print(summary_panel)
 
     if failed > 0:
