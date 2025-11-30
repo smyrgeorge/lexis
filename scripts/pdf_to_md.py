@@ -29,28 +29,18 @@ import time
 from pathlib import Path
 from typing import Optional
 
+# Docling imports
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter
+from docling.document_converter import PdfFormatOption
+from marker.config.parser import ConfigParser
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import save_output
+
 from utils.term import Colors, Icons
 from utils.text import wrap_markdown_lines
-
-# Docling imports
-try:
-    from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
-    from docling.document_converter import DocumentConverter
-    from docling.document_converter import PdfFormatOption
-    DOCLING_AVAILABLE = True
-except ImportError:
-    DOCLING_AVAILABLE = False
-
-# Marker imports
-try:
-    from marker.converters.pdf import PdfConverter
-    from marker.models import create_model_dict
-    from marker.output import text_from_rendered
-    from marker.config.parser import ConfigParser
-    MARKER_AVAILABLE = True
-except ImportError:
-    MARKER_AVAILABLE = False
 
 
 def natural_sort_key(path: Path) -> list:
@@ -84,9 +74,6 @@ def process_pdfs_with_docling(
     Returns:
         Tuple of (processed_count, failed_count)
     """
-    if not DOCLING_AVAILABLE:
-        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} docling is not installed. Install it with: pip install docling")
-        return 0, len(pdf_files)
 
     # Filter out PDFs that already have .md files
     files_to_process = []
@@ -172,9 +159,6 @@ def process_pdfs_with_marker(
     Returns:
         Tuple of (processed_count, failed_count)
     """
-    if not MARKER_AVAILABLE:
-        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} marker is not installed. Install it with: pip install marker-pdf")
-        return 0, len(pdf_files)
 
     # Filter out PDFs that already have .md files
     files_to_process = []
@@ -221,24 +205,31 @@ def process_pdfs_with_marker(
             start_time = time.time()
             rendered = converter(str(pdf_file))
 
-            # Extract Markdown text
-            markdown_content, _, _ = text_from_rendered(rendered)
+            # Save Markdown and images to the same directory as the PDF
+            output_dir = str(pdf_file.parent)
+            output_basename = pdf_file.stem
 
-            # Wrap lines if enabled
-            if wrap_lines and line_width:
-                markdown_content = wrap_markdown_lines(markdown_content, line_width)
+            # Use marker's save_output to handle both text and images
+            save_output(rendered, output_dir, output_basename)
 
-            # Save to the same directory as the PDF
+            # If line wrapping is enabled, read the generated Markdown and re-wrap it
             output_file = pdf_file.with_suffix('.md')
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
+            if wrap_lines and line_width:
+                with open(output_file, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                markdown_content = wrap_markdown_lines(markdown_content, line_width)
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
 
             elapsed = time.time() - start_time
-            print(f"{Colors.GREEN}{Icons.SUCCESS} Successfully converted:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Icons.ARROW} {Colors.CYAN}{output_file.name}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed:.2f}s){Colors.RESET}")
+            # Count images by checking if an images directory was created
+            images_dir = pdf_file.parent / f"{output_basename}_images"
+            image_count = len(list(images_dir.glob('*'))) if images_dir.exists() else 0
+            print(f"{Colors.GREEN}{Icons.SUCCESS} Successfully converted:{Colors.RESET} {Colors.CYAN}{pdf_file.name}{Colors.RESET} {Icons.ARROW} {Colors.CYAN}{output_file.name}{Colors.RESET} {Colors.GRAY}({image_count} images, {Icons.CLOCK} {elapsed:.2f}s){Colors.RESET}")
             processed += 1
 
-        except Exception as e:
-            print(f"{Colors.RED}{Icons.ERROR} Failed to process {Colors.CYAN}{pdf_file.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
+        except Exception as e1:
+            print(f"{Colors.RED}{Icons.ERROR} Failed to process {Colors.CYAN}{pdf_file.name}{Colors.RESET}: {Colors.RED}{e1}{Colors.RESET}")
             failed += 1
 
         print()
@@ -331,16 +322,6 @@ def main():
     # Validate input path exists
     if not os.path.exists(args.input):
         print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} '{args.input}' does not exist")
-        sys.exit(1)
-
-    # Check if the selected engine is available
-    if args.engine == "docling" and not DOCLING_AVAILABLE:
-        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} docling is not installed. Install it with: pip install docling")
-        print(f"{Colors.GRAY}Or use a different engine with --engine marker{Colors.RESET}")
-        sys.exit(1)
-    elif args.engine == "marker" and not MARKER_AVAILABLE:
-        print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} marker is not installed. Install it with: pip install marker-pdf")
-        print(f"{Colors.GRAY}Or use a different engine with --engine docling{Colors.RESET}")
         sys.exit(1)
 
     # Determine the input type for display
