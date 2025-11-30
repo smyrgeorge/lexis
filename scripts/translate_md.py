@@ -43,6 +43,10 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
 
 from utils.term import Colors, Icons
 from utils.text import wrap_markdown_lines
@@ -62,7 +66,129 @@ Rules:
 """
 
 
-def load_txt_dictionary(txt_path: str) -> str:
+def _stream_with_preview(text_stream, max_lines: int = 5):
+    """
+    Stream text chunks and display a live preview of the translation.
+
+    Args:
+        text_stream: Iterator of text chunks to stream
+        max_lines: Maximum number of preview lines to show (default: 5)
+
+    Returns:
+        Complete translated text as a string
+    """
+    collected_text = []
+    full_text = ""
+
+    # Get console to know terminal width
+    console = Console()
+
+    with Live("", refresh_per_second=10, console=console) as live:
+        for text_chunk in text_stream:
+            collected_text.append(text_chunk)
+            full_text += text_chunk
+
+            # Split text by newlines and show only the last N lines
+            # Rich's Panel will handle word-wrapping automatically
+            lines = full_text.split('\n')
+
+            # If we have more lines than max_lines, show only the last max_lines
+            if len(lines) > max_lines:
+                preview_text = '\n'.join(lines[-max_lines:])
+            else:
+                preview_text = full_text
+
+            # Create the panel with the preview text
+            panel = Panel(
+                preview_text,
+                title="[dim]Translation Preview[/dim]",
+                border_style="dim",
+                expand=True
+            )
+
+            # Update the live display
+            live.update(panel)
+
+    return ''.join(collected_text)
+
+
+def _natural_sort_key(path: Path) -> list:
+    """
+    Generate a sort key for natural sorting of file names.
+    This ensures that file10.md comes after file2.md, not before.
+
+    Args:
+        path: Path object to generate a sort key for
+
+    Returns:
+        List of strings and integers for natural sorting
+    """
+    return [int(c) if c.isdigit() else c.lower()
+            for c in re.split(r'(\d+)', str(path.name))]
+
+
+def _get_file_lines(file_path: str, num_lines: int, from_end: bool = False) -> list[str]:
+    """
+    Get the first or last N lines from a file.
+
+    Args:
+        file_path: Path to the file
+        num_lines: Number of lines to get
+        from_end: If True, get last N lines; if False, get first N lines
+
+    Returns:
+        List of lines
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if from_end:
+                return lines[-num_lines:] if len(lines) >= num_lines else lines
+            else:
+                return lines[:num_lines] if len(lines) >= num_lines else lines
+    except Exception as e:
+        print(f"Warning: Could not read context from {file_path}: {e}")
+        return []
+
+
+def _print_file_preview(title: str, lines: list[str], max_display_width: int = 75):
+    """
+    Print a file preview using Rich Panel.
+
+    Args:
+        title: Panel title
+        lines: Lines to display
+        max_display_width: Maximum width for line truncation
+    """
+    if not lines:
+        return
+
+    console = Console()
+    preview_text = Text()
+
+    for i, line in enumerate(lines):
+        # Truncate long lines
+        display_line = line.strip()
+        if len(display_line) > max_display_width:
+            display_line = display_line[:max_display_width] + '...'
+
+        if i > 0:
+            preview_text.append("\n")
+        preview_text.append(f"{i + 1}. ", style="dim")
+        preview_text.append(display_line)
+
+    panel = Panel(
+        preview_text,
+        title=f"[dim]{title}[/dim]",
+        border_style="blue dim",
+        expand=True,
+        padding=(0, 1)
+    )
+
+    console.print(panel)
+
+
+def _load_txt_dictionary(txt_path: str) -> str:
     """
     Load a TXT dictionary file and format it as a string.
     Expected TXT format: term: translation 1, translation 2
@@ -115,14 +241,15 @@ def load_txt_dictionary(txt_path: str) -> str:
     ])
 
 
-def translate_with_claude(
+def _translate_with_claude(
         text: str,
         prompt: str,
         dictionary: str,
         api_key: str,
-        model: str = default_claude_model
+        model: str = default_claude_model,
+        stream: bool = True
 ) -> str:
-    """Translate text using Claude API."""
+    """Translate text using Claude API with optional streaming."""
     import anthropic
     from anthropic.types import MessageParam
 
@@ -133,26 +260,41 @@ def translate_with_claude(
         {"role": "user", "content": full_prompt}
     ]
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=8000,
-        messages=messages
-    )
+    if stream:
+        # Stream the response and show preview
+        with client.messages.stream(
+                model=model,
+                max_tokens=8000,
+                messages=messages
+        ) as stream:
+            result = _stream_with_preview(stream.text_stream)
 
-    text = message.content[0].text
-    if not text or not text.strip():
-        raise ValueError("API returned empty translation")
-    return text
+        if not result or not result.strip():
+            raise ValueError("API returned empty translation")
+        return result
+    else:
+        # Non-streaming mode (original behavior)
+        message = client.messages.create(
+            model=model,
+            max_tokens=8000,
+            messages=messages
+        )
+
+        text = message.content[0].text
+        if not text or not text.strip():
+            raise ValueError("API returned empty translation")
+        return text
 
 
-def translate_with_openai(
+def _translate_with_openai(
         text: str,
         prompt: str,
         dictionary: str,
         api_key: str,
-        model: str = default_openai_model
+        model: str = default_openai_model,
+        stream: bool = True
 ) -> str:
-    """Translate text using OpenAI API."""
+    """Translate text using OpenAI API with optional streaming."""
     from openai import OpenAI
     from openai.types.chat import ChatCompletionUserMessageParam
 
@@ -163,18 +305,39 @@ def translate_with_openai(
         {"role": "user", "content": full_prompt}
     ]
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages
-    )
+    if stream:
+        # Stream the response and show preview
+        stream_response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            stream=True
+        )
 
-    content = response.choices[0].message.content
-    if not content or not content.strip():
-        raise ValueError("API returned empty translation")
-    return content
+        # Create a generator that yields only the text content
+        def text_chunks():
+            for chunk in stream_response:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+
+        result = _stream_with_preview(text_chunks())
+
+        if not result or not result.strip():
+            raise ValueError("API returned empty translation")
+        return result
+    else:
+        # Non-streaming mode (original behavior)
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages
+        )
+
+        content = response.choices[0].message.content
+        if not content or not content.strip():
+            raise ValueError("API returned empty translation")
+        return content
 
 
-def translate_with_libretranslate(
+def _translate_with_libretranslate(
         text: str,
         source_lang: str,
         target_lang: str,
@@ -226,46 +389,6 @@ def translate_with_libretranslate(
         raise ValueError(f"LibreTranslate API request failed: {e}")
 
 
-def natural_sort_key(path: Path) -> list:
-    """
-    Generate a sort key for natural sorting of file names.
-    This ensures that file10.md comes after file2.md, not before.
-
-    Args:
-        path: Path object to generate a sort key for
-
-    Returns:
-        List of strings and integers for natural sorting
-    """
-    return [int(c) if c.isdigit() else c.lower()
-            for c in re.split(r'(\d+)', str(path.name))]
-
-
-def get_file_lines(file_path: str, num_lines: int, from_end: bool = False) -> list[str]:
-    """
-    Get the first or last N lines from a file.
-
-    Args:
-        file_path: Path to the file
-        num_lines: Number of lines to get
-        from_end: If True, get last N lines; if False, get first N lines
-
-    Returns:
-        List of lines
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            if from_end:
-                return lines[-num_lines:] if len(lines) >= num_lines else lines
-            else:
-                return lines[:num_lines] if len(lines) >= num_lines else lines
-    except Exception as e:
-        print(f"Warning: Could not read context from {file_path}: {e}")
-        return []
-
-
-# noinspection PyUnusedLocal
 def translate_file(
         input_file: str,
         output_dir: str,
@@ -310,44 +433,44 @@ def translate_file(
     context_suffix = ""
 
     if prev_file and context_lines > 0:
-        prev_lines = get_file_lines(prev_file, context_lines, from_end=True)
+        prev_lines = _get_file_lines(prev_file, context_lines, from_end=True)
         if prev_lines:
             context_prefix = (
-                "---\n"
-                "## CONTEXT FROM PREVIOUS CHUNK (FOR REFERENCE ONLY - DO NOT TRANSLATE THIS SECTION)\n"
-                "The following lines are from the previous chunk to provide context.\n"
-                "DO NOT translate this section, only use it for context.\n"
-                "---\n\n"
-                + "".join(prev_lines) +
-                "\n---\n"
-                "## END OF PREVIOUS CHUNK CONTEXT\n"
-                "---\n\n"
+                    "---\n"
+                    "## CONTEXT FROM PREVIOUS CHUNK (FOR REFERENCE ONLY - DO NOT TRANSLATE THIS SECTION)\n"
+                    "The following lines are from the previous chunk to provide context.\n"
+                    "DO NOT translate this section, only use it for context.\n"
+                    "---\n\n"
+                    + "".join(prev_lines) +
+                    "\n---\n"
+                    "## END OF PREVIOUS CHUNK CONTEXT\n"
+                    "---\n\n"
             )
 
     if next_file and context_lines > 0:
-        next_lines = get_file_lines(next_file, context_lines, from_end=False)
+        next_lines = _get_file_lines(next_file, context_lines, from_end=False)
         if next_lines:
             context_suffix = (
-                "\n---\n"
-                "## CONTEXT FROM NEXT CHUNK (FOR REFERENCE ONLY - DO NOT TRANSLATE THIS SECTION)\n"
-                "The following lines are from the next chunk to provide context.\n"
-                "DO NOT translate this section, only use it for context.\n"
-                "---\n\n"
-                + "".join(next_lines) +
-                "\n---\n"
-                "## END OF NEXT CHUNK CONTEXT\n"
-                "---\n"
+                    "\n---\n"
+                    "## CONTEXT FROM NEXT CHUNK (FOR REFERENCE ONLY - DO NOT TRANSLATE THIS SECTION)\n"
+                    "The following lines are from the next chunk to provide context.\n"
+                    "DO NOT translate this section, only use it for context.\n"
+                    "---\n\n"
+                    + "".join(next_lines) +
+                    "\n---\n"
+                    "## END OF NEXT CHUNK CONTEXT\n"
+                    "---\n"
             )
 
     # Add the main content marker if we have any context
     if context_prefix or context_suffix:
         content_with_context = (
-            context_prefix +
-            "---\n## MAIN CONTENT TO TRANSLATE\n"
-            "Translate ONLY this section below:\n---\n\n" +
-            content +
-            "\n---\n## END OF MAIN CONTENT\n---\n" +
-            context_suffix
+                context_prefix +
+                "---\n## MAIN CONTENT TO TRANSLATE\n"
+                "Translate ONLY this section below:\n---\n\n" +
+                content +
+                "\n---\n## END OF MAIN CONTENT\n---\n" +
+                context_suffix
         )
     else:
         content_with_context = content
@@ -355,7 +478,7 @@ def translate_file(
     # Load dictionary if provided (not used for LibreTranslate)
     dictionary = ""
     if dictionary_path and provider != "libretranslate":
-        dictionary = load_txt_dictionary(dictionary_path)
+        dictionary = _load_txt_dictionary(dictionary_path)
     elif dictionary_path and provider == "libretranslate":
         print(f"  {Colors.YELLOW}⚠️  Warning:{Colors.RESET} Dictionary is not supported with LibreTranslate provider")
 
@@ -377,16 +500,30 @@ def translate_file(
 
     # Translate
     if provider == "libretranslate" and (context_prefix or context_suffix):
-        print(f"  {Colors.YELLOW}⚠️  Warning:{Colors.RESET} Context from adjacent chunks is not supported with LibreTranslate. Using direct translation.")
+        print(
+            f"  {Colors.YELLOW}⚠️  Warning:{Colors.RESET} Context from adjacent chunks is not supported with LibreTranslate. Using direct translation.")
 
-    if context_prefix or context_suffix:
-        print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} {Colors.GRAY}(with context from adjacent chunks){Colors.RESET}...")
+    # Build translation message
+    if provider in ["claude", "openai"]:
+        selected_model = model if model else (default_claude_model if provider == "claude" else default_openai_model)
+        if context_prefix or context_suffix:
+            print(
+                f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} ({Colors.DIM}{selected_model}{Colors.RESET}) {Colors.GRAY}(with context from adjacent chunks){Colors.RESET}...")
+        else:
+            print(
+                f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} ({Colors.DIM}{selected_model}{Colors.RESET})...")
     else:
-        print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET}...")
+        # LibreTranslate doesn't use models
+        if context_prefix or context_suffix:
+            print(
+                f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET} {Colors.GRAY}(with context from adjacent chunks){Colors.RESET}...")
+        else:
+            print(f"  {Colors.CYAN}{Icons.GLOBE} Translating with {Colors.MAGENTA}{provider}{Colors.RESET}...")
+
     start_time = time.time()
 
     if provider == "claude":
-        translated = translate_with_claude(
+        translated = _translate_with_claude(
             content_with_context,
             prompt,
             dictionary,
@@ -394,7 +531,7 @@ def translate_file(
             model if model else default_claude_model
         )
     elif provider == "openai":
-        translated = translate_with_openai(
+        translated = _translate_with_openai(
             content_with_context,
             prompt,
             dictionary,
@@ -403,7 +540,7 @@ def translate_file(
         )
     else:  # libretranslate
         # LibreTranslate doesn't support context or dictionaries, use raw content
-        translated = translate_with_libretranslate(
+        translated = _translate_with_libretranslate(
             content,  # Use raw content, not content_with_context
             source_lang,
             target_lang,
@@ -429,7 +566,8 @@ def translate_file(
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(translated)
 
-    print(f"  {Colors.GREEN}{Icons.SUCCESS} Translation saved to:{Colors.RESET} {Colors.CYAN}{output_path}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed_time:.2f}s){Colors.RESET}")
+    print(
+        f"  {Colors.GREEN}{Icons.SUCCESS} Translation saved to:{Colors.RESET} {Colors.CYAN}{output_path}{Colors.RESET} {Colors.GRAY}({Icons.CLOCK} {elapsed_time:.2f}s){Colors.RESET}")
 
 
 def main():
@@ -533,7 +671,7 @@ def main():
         files_to_process = [input_path]
     elif input_path.is_dir():
         # Directory mode - find all .md files
-        all_md_files = sorted(input_path.glob("*.md"), key=natural_sort_key)
+        all_md_files = sorted(input_path.glob("*.md"), key=_natural_sort_key)
         if not all_md_files:
             print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} No .md files found in directory {args.input_file}")
             sys.exit(1)
@@ -549,13 +687,15 @@ def main():
             # Also skip if the translated version already exists
             translated_file = f.parent / f"{f.stem}_{args.target_lang}.md"
             if translated_file.exists():
-                print(f"{Colors.YELLOW}{Icons.SKIP} Skipping:{Colors.RESET} {Colors.DIM}{f.name}{Colors.RESET} {Colors.GRAY}(translation already exists){Colors.RESET}")
+                print(
+                    f"{Colors.YELLOW}{Icons.SKIP} Skipping:{Colors.RESET} {Colors.DIM}{f.name}{Colors.RESET} {Colors.GRAY}(translation already exists){Colors.RESET}")
                 skipped += 1
                 continue
             files_to_process.append(f)
 
         if not files_to_process:
-            print(f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No files to translate. All files are already translated or skipped.")
+            print(
+                f"{Colors.YELLOW}{Icons.INFO} Info:{Colors.RESET} No files to translate. All files are already translated or skipped.")
             sys.exit(0)
 
         print(
@@ -575,12 +715,17 @@ def main():
     if args.style:
         formatted_prompt += f"\nStyle Guidelines:\n{args.style}"
 
-    # Print the prompt for user preview
-    print(f"\n{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Icons.SPARKLES} Translation Prompt Preview{Colors.RESET}")
-    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    print(f"{Colors.WHITE}{formatted_prompt}{Colors.RESET}")
-    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}\n")
+    # Print the prompt for user preview using a Rich panel
+    console = Console()
+    prompt_panel = Panel(
+        formatted_prompt,
+        title=f"[bold]{Icons.SPARKLES} Translation Prompt Preview[/bold]",
+        border_style="cyan",
+        expand=True,
+        padding=(1, 2)
+    )
+    console.print(f"\n")
+    console.print(prompt_panel)
 
     # Show cost estimation for batch processing
     if len(files_to_process) > 1:
@@ -601,8 +746,10 @@ def main():
         print(f"   {Colors.CYAN}Total characters:{Colors.RESET} {Colors.BOLD}{total_chars:,}{Colors.RESET}")
         print(f"   {Colors.CYAN}Estimated input tokens:{Colors.RESET} {Colors.BOLD}~{est_tokens:,}{Colors.RESET}")
         print(f"   {Colors.CYAN}Provider:{Colors.RESET} {Colors.MAGENTA}{args.provider}{Colors.RESET}")
-        print(f"   {Colors.CYAN}Model:{Colors.RESET} {Colors.MAGENTA}{args.model if args.model else (default_claude_model if args.provider == 'claude' else default_openai_model)}{Colors.RESET}")
-        print(f"\n   {Colors.GRAY}{Icons.INFO} Note: Actual costs depend on output length and provider pricing.{Colors.RESET}")
+        print(
+            f"   {Colors.CYAN}Model:{Colors.RESET} {Colors.MAGENTA}{args.model if args.model else (default_claude_model if args.provider == 'claude' else default_openai_model)}{Colors.RESET}")
+        print(
+            f"\n   {Colors.GRAY}{Icons.INFO} Note: Actual costs depend on output length and provider pricing.{Colors.RESET}")
         print(f"   {Colors.GRAY}{Icons.INFO} Context from adjacent chunks will add additional tokens.{Colors.RESET}")
         print(f"{Colors.BLUE}{'─' * 80}{Colors.RESET}")
 
@@ -636,7 +783,7 @@ def main():
             all_source_files = sorted([
                 f for f in input_path.glob("*.md")
                 if not f.stem.endswith(f"_{args.target_lang}")
-            ], key=natural_sort_key)
+            ], key=_natural_sort_key)
 
             # Find the current file's position in the complete list
             try:
@@ -667,29 +814,40 @@ def main():
                 # File wasn't found in the list, skip context
                 pass
 
-        print(f"\n{Colors.GREEN}{'─' * 80}{Colors.RESET}")
-        print(f"{Colors.BOLD}{Icons.FILE} [{idx + 1}/{len(files_to_process)}] Processing:{Colors.RESET} {Colors.CYAN}{file_path.name}{Colors.RESET}")
-        print(f"{Colors.GREEN}{'─' * 80}{Colors.RESET}")
-        print(f"  {Colors.DIM}Characters:{Colors.RESET} {Colors.BOLD}{current_char_count:,}{Colors.RESET}")
-        print(f"  {Colors.DIM}First lines:{Colors.RESET}")
-        for i, line in enumerate(current_first_lines, 1):
-            truncated_line = line[:75] + '...' if len(line) > 75 else line
-            print(f"    {Colors.GRAY}{i}.{Colors.RESET} {truncated_line}")
-        if prev_file and args.context_lines > 0:
-            print(f"\n  {Colors.BLUE}{Icons.FILE} Previous chunk:{Colors.RESET} {Colors.DIM}{Path(prev_file).name}{Colors.RESET}")
-            if prev_last_lines:
-                print(f"     {Colors.DIM}Last lines:{Colors.RESET}")
-                for i, line in enumerate(prev_last_lines, 1):
-                    truncated_line = line[:75] + '...' if len(line) > 75 else line
-                    print(f"       {Colors.GRAY}{i}.{Colors.RESET} {Colors.DIM}{truncated_line}{Colors.RESET}")
-        if next_file and args.context_lines > 0:
-            print(f"\n  {Colors.BLUE}{Icons.FILE} Next chunk:{Colors.RESET} {Colors.DIM}{Path(next_file).name}{Colors.RESET}")
-            if next_first_lines:
-                print(f"     {Colors.DIM}First lines:{Colors.RESET}")
-                for i, line in enumerate(next_first_lines, 1):
-                    truncated_line = line[:75] + '...' if len(line) > 75 else line
-                    print(f"       {Colors.GRAY}{i}.{Colors.RESET} {Colors.DIM}{truncated_line}{Colors.RESET}")
-        print(f"{Colors.GREEN}{'─' * 80}{Colors.RESET}")
+        # Print file processing header with a Rich panel
+        console = Console()
+        header_text = Text()
+        header_text.append(f"{Icons.FILE} ", style="bold")
+        header_text.append(f"[{idx + 1}/{len(files_to_process)}] ", style="dim")
+        header_text.append("Processing: ", style="bold")
+        header_text.append(file_path.name, style="cyan bold")
+        header_text.append(f"\nCharacters: ", style="dim")
+        header_text.append(f"{current_char_count:,}", style="bold")
+
+        header_panel = Panel(
+            header_text,
+            border_style="green",
+            expand=True,
+            padding=(0, 1)
+        )
+        console.print(header_panel)
+
+        # Show the current file preview
+        _print_file_preview("Current File - First Lines", current_first_lines)
+
+        # Show previous chunk context if available
+        if prev_file and prev_last_lines and args.context_lines > 0:
+            print(
+                f"\n  {Colors.BLUE}{Icons.FILE} Previous chunk:{Colors.RESET} {Colors.DIM}{Path(prev_file).name}{Colors.RESET}")
+            _print_file_preview("Last Lines", prev_last_lines)
+
+        # Show the next chunk context if available
+        if next_file and next_first_lines and args.context_lines > 0:
+            print(
+                f"\n  {Colors.BLUE}{Icons.FILE} Next chunk:{Colors.RESET} {Colors.DIM}{Path(next_file).name}{Colors.RESET}")
+            _print_file_preview("First Lines", next_first_lines)
+
+        print()  # Add a blank line before translation
 
         try:
             translate_file(
@@ -710,7 +868,8 @@ def main():
             )
             processed += 1
         except Exception as e:
-            print(f"  {Colors.RED}{Icons.ERROR} Error processing {Colors.CYAN}{file_path.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
+            print(
+                f"  {Colors.RED}{Icons.ERROR} Error processing {Colors.CYAN}{file_path.name}{Colors.RESET}: {Colors.RED}{e}{Colors.RESET}")
             failed += 1
 
     # Summary
@@ -719,7 +878,8 @@ def main():
         print(f"{Colors.BOLD}{Icons.CHART} Summary{Colors.RESET}")
         print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
         print(f"  {Colors.CYAN}Total files:{Colors.RESET} {Colors.BOLD}{len(files_to_process)}{Colors.RESET}")
-        print(f"  {Colors.GREEN}{Icons.SUCCESS} Successfully translated:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{processed}{Colors.RESET}")
+        print(
+            f"  {Colors.GREEN}{Icons.SUCCESS} Successfully translated:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{processed}{Colors.RESET}")
         if failed > 0:
             print(f"  {Colors.RED}{Icons.ERROR} Failed:{Colors.RESET} {Colors.BOLD}{Colors.RED}{failed}{Colors.RESET}")
         print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
