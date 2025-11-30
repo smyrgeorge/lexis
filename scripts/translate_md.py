@@ -35,7 +35,6 @@ python scripts/translate_md.py input.md -s Spanish -t English -o ./translations
 
 import argparse
 import os
-import re
 import sys
 import time
 import warnings
@@ -48,6 +47,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
+from utils.file import natural_sort_key
 from utils.term import Colors, Icons
 from utils.text import wrap_markdown_lines
 
@@ -111,20 +111,6 @@ def _stream_with_preview(text_stream, max_lines: int = 5):
 
     return ''.join(collected_text)
 
-
-def _natural_sort_key(path: Path) -> list:
-    """
-    Generate a sort key for natural sorting of file names.
-    This ensures that file10.md comes after file2.md, not before.
-
-    Args:
-        path: Path object to generate a sort key for
-
-    Returns:
-        List of strings and integers for natural sorting
-    """
-    return [int(c) if c.isdigit() else c.lower()
-            for c in re.split(r'(\d+)', str(path.name))]
 
 
 def _get_file_lines(file_path: str, num_lines: int, from_end: bool = False) -> list[str]:
@@ -671,7 +657,7 @@ def main():
         files_to_process = [input_path]
     elif input_path.is_dir():
         # Directory mode - find all .md files
-        all_md_files = sorted(input_path.glob("*.md"), key=_natural_sort_key)
+        all_md_files = sorted(input_path.glob("*.md"), key=natural_sort_key)
         if not all_md_files:
             print(f"{Colors.RED}{Icons.ERROR} Error:{Colors.RESET} No .md files found in directory {args.input_file}")
             sys.exit(1)
@@ -783,7 +769,7 @@ def main():
             all_source_files = sorted([
                 f for f in input_path.glob("*.md")
                 if not f.stem.endswith(f"_{args.target_lang}")
-            ], key=_natural_sort_key)
+            ], key=natural_sort_key)
 
             # Find the current file's position in the complete list
             try:

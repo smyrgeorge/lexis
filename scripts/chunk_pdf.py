@@ -14,6 +14,9 @@ import sys
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 from utils.term import Colors, Icons
 
@@ -38,13 +41,31 @@ def chunk_pdf(input_file: str, output_dir: str, pages_per_chunk: int = 10):
     reader = PdfReader(input_file)
     total_pages = len(reader.pages)
 
-    print(f"\n{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Icons.FILE} Processing PDF{Colors.RESET}")
-    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    print(f"  {Colors.DIM}File:{Colors.RESET} {Colors.CYAN}{input_file}{Colors.RESET}")
-    print(f"  {Colors.DIM}Total pages:{Colors.RESET} {Colors.BOLD}{total_pages}{Colors.RESET}")
-    print(f"  {Colors.DIM}Pages per chunk:{Colors.RESET} {Colors.BOLD}{pages_per_chunk}{Colors.RESET}")
-    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}\n")
+    # Calculate number of chunks
+    num_chunks = (total_pages + pages_per_chunk - 1) // pages_per_chunk
+
+    # Display header with Rich Panel
+    console = Console()
+    header_text = Text()
+    header_text.append(f"File: ", style="dim")
+    header_text.append(f"{input_file}\n", style="cyan")
+    header_text.append(f"Total pages: ", style="dim")
+    header_text.append(f"{total_pages}\n", style="bold")
+    header_text.append(f"Pages per chunk: ", style="dim")
+    header_text.append(f"{pages_per_chunk}\n", style="bold")
+    header_text.append(f"Expected chunks: ", style="dim")
+    header_text.append(f"{num_chunks}", style="bold green")
+
+    header_panel = Panel(
+        header_text,
+        title=f"[bold]{Icons.SPARKLES} PDF Chunking Tool[/bold]",
+        border_style="cyan",
+        expand=True,
+        padding=(1, 2)
+    )
+    console.print(f"\n")
+    console.print(header_panel)
+    print()
 
     # Get base filename without extension
     base_name = Path(input_file).stem
@@ -70,17 +91,39 @@ def chunk_pdf(input_file: str, output_dir: str, pages_per_chunk: int = 10):
         with open(output_file, "wb") as output_pdf:
             writer.write(output_pdf)
 
-        print(
-            f"{Colors.GREEN}{Icons.SUCCESS} Created chunk {Colors.BOLD}{chunk_num}{Colors.RESET}: {Colors.CYAN}{output_file}{Colors.RESET} {Colors.GRAY}(pages {start_page + 1}-{end_page}){Colors.RESET}")
+        # Display chunk creation with Rich Panel
+        chunk_text = Text()
+        chunk_text.append(f"[{chunk_num}/{num_chunks}] ", style="dim")
+        chunk_text.append("Chunk created: ", style="bold")
+        chunk_text.append(f"{Path(output_file).name}\n", style="cyan")
+        chunk_text.append(f"Pages: ", style="dim")
+        chunk_text.append(f"{start_page + 1}-{end_page}", style="bold")
+
+        chunk_panel = Panel(
+            chunk_text,
+            border_style="green",
+            expand=True,
+            padding=(0, 1)
+        )
+        console.print(chunk_panel)
         chunk_num += 1
 
-    print(f"\n{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Icons.CHART} Summary{Colors.RESET}")
-    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
-    print(
-        f"  {Colors.GREEN}{Icons.SUCCESS} Successfully created:{Colors.RESET} {Colors.BOLD}{Colors.GREEN}{chunk_num - 1}{Colors.RESET} chunks")
-    print(f"  {Colors.CYAN}Output directory:{Colors.RESET} {Colors.CYAN}{output_dir}{Colors.RESET}")
-    print(f"{Colors.MAGENTA}{'═' * 80}{Colors.RESET}")
+    # Summary with Rich Panel
+    summary_text = Text()
+    summary_text.append(f"{Icons.SUCCESS} Successfully created: ", style="green")
+    summary_text.append(f"{chunk_num - 1} chunks\n", style="bold green")
+    summary_text.append(f"Output directory: ", style="cyan")
+    summary_text.append(f"{output_dir}", style="cyan bold")
+
+    summary_panel = Panel(
+        summary_text,
+        title=f"[bold]{Icons.CHART} Summary[/bold]",
+        border_style="magenta",
+        expand=True,
+        padding=(1, 2)
+    )
+    console.print(f"\n")
+    console.print(summary_panel)
 
 
 def main():

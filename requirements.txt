@@ -1,4 +1,3 @@
-docling
 marker-pdf
 opencv-python
 pypdf
