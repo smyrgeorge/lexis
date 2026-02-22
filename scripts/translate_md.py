@@ -55,7 +55,7 @@ from utils.text import wrap_markdown_lines
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality.*", category=UserWarning)
 
 default_openai_model = "gpt-5"
-default_claude_model = "claude-sonnet-4-5-20250929"
+default_claude_model = "claude-sonnet-4-6"
 default_libretranslate_url = "https://libretranslate.com"
 default_prompt = """
 Translate the following markdown text from {source} to {target}.
@@ -63,6 +63,10 @@ Rules:
 - Preserve all markdown formatting, structure, and syntax.
 - Only translate the text content, not the markdown syntax itself.
 - Only output the translated text, no additional text headings (e.g., "Translation:").
+- Each list item MUST remain on its own separate line. Do NOT merge multiple list items into a single line.
+- Preserve all blank lines between paragraphs, list items, and sections exactly as in the source.
+- Do NOT join lines that were separate in the source text.
+- For blockquotes, every line MUST start with `> `. Do NOT merge multiple blockquote lines into one — each line in the original blockquote must remain a separate line prefixed with `> `.
 """
 
 
